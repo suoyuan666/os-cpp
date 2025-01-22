@@ -1,0 +1,7 @@
+// -*- C++ -*-
+
+namespace std {
+class ostream {
+    
+};
+}  // namespace std

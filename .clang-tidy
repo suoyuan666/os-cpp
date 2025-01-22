@@ -1,0 +1,31 @@
+Checks: '
+  modernize-*,
+  performance-*,
+  readability-*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  hicpp-*,
+  google-*,
+  llvm-*,
+  clang-analyzer-cplusplus.NewDelete,
+  clang-analyzer-cplusplus.Move,
+  clang-analyzer-cplusplus.SmartPtr,
+  clang-analyzer-core.NonNullParamChecker,
+  clang-analyzer-core.NullDereference,
+  clang-analyzer-core.UndefinedBinaryOperatorResult,
+  clang-analyzer-core.CallAndMessage,
+  clang-analyzer-core.StackAddressEscape,
+  clang-analyzer-core.DivideZero,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-*,
+  -hicpp-no-assembler,
+'
+CheckOptions:
+  - { key: modernize-use-auto.MinTypeNameLength,                            value: 5  }
+  - { key: modernize-use-using.OverrideThreshold,                           value: 4  }
+  - { key: readability-identifier-naming.VariableCase,                      value: camelCase }
+  - { key: readability-identifier-naming.ClassCase,                         value: CamelCase }
+  - { key: readability-identifier-naming.FunctionCase,                      value: camelBack }
+  - { key: readability-identifier-naming.NamespaceCase,                     value: camelBack }
+  - { key: performance-implicit-conversion-in-loop.CheckTrivialTypes,       value: false }
+# WarningsAsErrors: '*'
