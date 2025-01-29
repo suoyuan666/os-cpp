@@ -1,0 +1,4 @@
+// -*- C++ -*-
+
+auto uartinit() -> void; 
+auto uart_putc(char c) -> void;

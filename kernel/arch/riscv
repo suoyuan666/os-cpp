@@ -1,0 +1,89 @@
+// -*- C++ -*-
+#pragma once
+#include "type_def"
+
+// for RISC-V registers
+
+constexpr uint64_t MSTATUS_MIE {1ULL < 3U};
+constexpr uint64_t MSTATUS_MPP_MASK {3ULL << 11U};
+constexpr uint64_t MSTATUS_MPP_M {3ULL << 11U};
+constexpr uint64_t MSTATUS_MPP_S {1ULL << 11U};
+constexpr uint64_t MSTATUS_MPP_U {0ULL << 11U};
+
+constexpr auto r_mstatus = []() -> uint64_t {
+  uint64_t rs {};
+  asm volatile ("csrr %0, mstatus": "=r" (rs));
+  return rs;
+};
+constexpr auto w_mstatus = [](const uint64_t value) -> void  {
+  asm volatile ("csrw mstatus, %0": : "r" (value));
+};
+
+constexpr auto w_mepc = [](const uint64_t addr) -> void {
+  asm volatile ("csrw mepc, %0": : "r" (addr));
+};
+
+constexpr auto w_satp = [](const uint64_t value) -> void {
+  asm volatile ("csrw satp, %0" : : "r" (value)); 
+};
+
+constexpr auto w_medeleg = [](const uint64_t value) -> void {
+  asm volatile ("csrw medeleg, %0" : : "r" (value)); 
+};
+
+constexpr auto w_mideleg = [](const uint64_t value) -> void {
+  asm volatile ("csrw mideleg, %0" : : "r" (value)); 
+};
+
+constexpr auto w_pmpaddr0 = [](const uint64_t value) -> void {
+  asm volatile ("csrw pmpaddr0, %0" : : "r" (value)); 
+};
+constexpr auto w_pmpcfg0 = [](const uint64_t value) -> void {
+  asm volatile ("csrw pmpcfg0, %0" : : "r" (value)); 
+};
+
+constexpr uint64_t SIE_SEIE {}; // extenal
+constexpr uint64_t SIE_STIE {}; // time
+constexpr uint64_t SIE_SSIE {}; // software
+
+constexpr auto w_sie = [](const uint64_t value) -> void {
+  asm volatile ("csrw sie, %0" : : "r" (value)); 
+};
+constexpr auto r_sie = []() -> uint64_t {
+  uint64_t rs {};
+  asm volatile ("csrr %0, sie": "=r" (rs));
+  return rs;
+};
+
+// for PTE
+constexpr uint64_t PTE_V {1ULL << 0U};
+constexpr uint64_t PTE_R {1ULL << 1U};
+constexpr uint64_t PTE_W {1ULL << 2U};
+constexpr uint64_t PTE_X {1ULL << 3U};
+constexpr uint64_t PTE_U {1ULL << 4U};
+
+constexpr uint32_t PGSIZE {4096U};
+
+constexpr auto PTE2PA = [](const uint64_t pte) -> uint64_t {
+  return (pte >> 10U) << 12U;
+};
+constexpr auto PA2PTE = [](const uint64_t pa) -> uint64_t {
+  return (pa >> 12U) << 10U;
+};
+
+constexpr auto PTE_FLAGS = [](const uint64_t pte) -> uint64_t {
+  return pte & 1023U; // (1023)_10 == (11,1111,1111)_2
+};
+
+
+constexpr uint32_t PX_MASK {0x1FF};
+constexpr uint32_t PG_SHIFT {12};
+constexpr auto PX_SHIFT = [](uint32_t level) -> uint64_t {
+  return PG_SHIFT + 9 * level;
+};
+constexpr auto PX = [](uint32_t level, const uint64_t pte) -> uint64_t {
+  return (pte >> PX_SHIFT(level)) & PX_MASK; 
+};
+
+// Sv39 就是如此
+constexpr uint64_t VA_MAX {1ULL << 38U};
