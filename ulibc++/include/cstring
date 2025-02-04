@@ -1,0 +1,7 @@
+// -*- C++ -*-
+#pragma once
+#include <cstdint>
+
+namespace std {
+auto memset(void* dest, int ch, uint32_t count) -> void*;
+}  // namespace std

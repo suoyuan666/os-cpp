@@ -30,9 +30,8 @@ if(EXISTS "${PATH_TO_CMAKELISTS_TXT}")
     Some junk files were created in this folder (CMakeCache.txt, CMakeFiles); you should delete those.")
 endif()
 
-# add_subdirectory(utils)
+add_subdirectory(ulibc++)
 add_subdirectory(kernel)
-# add_subdirectory(mkfs)
 
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
