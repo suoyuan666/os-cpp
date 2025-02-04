@@ -1,4 +1,6 @@
 // -*- C++ -*-
 
-auto uartinit() -> void; 
-auto uart_putc(char c) -> void;
+namespace uart {
+auto init() -> void;
+auto putc(char c) -> void;
+}  // namespace uart

@@ -1,6 +1,9 @@
-#include "arch/riscv"
-#include "type_def"
+#include <cstdint>
+
+#include "proc"
+#include "trap"
 #include "uart"
+#include "vm"
 
 __attribute__((aligned(16))) char stack0[4096];
 
@@ -16,7 +19,7 @@ extern "C" void start() {
   w_mepc((uint64_t)main);
 
   w_satp(0);
-  
+
   w_medeleg(0xffff);
   w_mideleg(0xffff);
   w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
@@ -28,9 +31,9 @@ extern "C" void start() {
 }
 
 auto main() -> void {
-  uartinit();
-  constexpr char value[19] = "uart output is ok\n"; 
-  for (const auto& c : value) {
-    uart_putc(c);
-  }
+  uart::init();
+  vm::init();
+  vm::inithart();
+  proc::init();
+  trap::inithart();
 }

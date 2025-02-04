@@ -1,0 +1,71 @@
+// -*- C++ -*-
+//
+#include <cstdint>
+#include <optional>
+
+#include "arch/riscv"
+
+namespace vm {
+// qemu -machine virt is set up like this,
+// based on qemu's hw/riscv/virt.c:
+//
+// 00001000 -- boot ROM, provided by qemu
+// 02000000 -- CLINT
+// 0C000000 -- PLIC
+// 10000000 -- uart0
+// 10001000 -- virtio disk
+// 80000000 -- boot ROM jumps here in machine mode
+//             -kernel loads the kernel here
+// unused RAM after 80000000.
+
+// the kernel uses physical memory thus:
+// 80000000 -- entry.S, then kernel text and data
+// end -- start of kernel page allocation area
+// PHYSTOP -- end RAM used by the kernel
+
+constexpr uint64_t UART0{0x10000000ULL};
+constexpr uint64_t UART_IRQ{10ULL};
+
+constexpr uint64_t VIRTIO0{0x10001000ULL};
+constexpr uint64_t VIRTIO_IRQ{1ULL};
+
+constexpr uint64_t PLIC{0x0c000000ULL};
+constexpr uint64_t PLIC_PRIORITY{PLIC + 0x0};
+constexpr uint64_t PLIC_PENDING{PLIC + 0x1000};
+constexpr auto PLIC_SENABLE = [](uint64_t hart) -> uint64_t {
+  return PLIC + 0x2080 + (hart) * 0x100;
+};
+constexpr auto PLIC_SPRIORITY = [](uint64_t hart) -> uint64_t {
+  return PLIC + 0x201000 + (hart) * 0x2000;
+};
+constexpr auto PLIC_SCLAIM = [](uint64_t hart) -> uint64_t {
+  return PLIC + 0x201004 + (hart) * 0x2000;
+};
+
+constexpr uint64_t KERNEL_BASE{0x80000000ULL};
+constexpr uint64_t PHY_END{KERNEL_BASE + 128ULL * 1024ULL * 1024ULL};
+
+constexpr uint64_t TRAMPOLINE{VA_MAX - PGSIZE};
+constexpr uint64_t TRAMFRAME{TRAMPOLINE - PGSIZE};
+constexpr auto KSTACK = [](uint64_t pa) -> uint64_t {
+  return TRAMFRAME - (pa + 1) * 2 * PGSIZE;
+};
+
+class kernel_vm {
+  struct list {
+    struct list *next;
+  } run{};
+  struct list *freelist{};
+
+ public:
+  kernel_vm();
+  auto free(void *addr) -> void;
+  auto alloc() -> std::optional<uint64_t *>;
+};
+kernel_vm kevm{};
+
+auto init() -> void;
+auto map_pages(uint64_t *pagetable, uint64_t va, uint64_t pa, uint64_t size,
+               uint32_t flag) -> bool;
+auto inithart() -> void;
+}  // namespace vm

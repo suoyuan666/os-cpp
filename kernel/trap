@@ -1,0 +1,5 @@
+// -*- C++ -*-
+
+namespace trap {
+auto inithart() -> void;
+}  // namespace trap

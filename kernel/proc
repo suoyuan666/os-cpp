@@ -1,0 +1,38 @@
+// -*- C++ -*-
+#include <cstdint>
+
+namespace proc {
+constexpr uint32_t NPROC{100};
+
+struct context {
+  uint64_t ra;
+  uint64_t sp;
+
+  // callee-saved
+  uint64_t s0;
+  uint64_t s1;
+  uint64_t s2;
+  uint64_t s3;
+  uint64_t s4;
+  uint64_t s5;
+  uint64_t s6;
+  uint64_t s7;
+  uint64_t s8;
+  uint64_t s9;
+  uint64_t s10;
+  uint64_t s11;
+};
+
+enum proc_status : char { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+
+struct process {
+  enum proc_status status;
+  uint32_t pid;
+
+  struct context;
+  uint64_t kernel_stack;
+};
+
+auto map_stack(uint64_t *kpt) -> void;
+auto init() -> void;
+}  // namespace proc
