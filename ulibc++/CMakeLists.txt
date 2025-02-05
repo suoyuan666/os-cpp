@@ -10,7 +10,7 @@ set(
     ${PROJECT_SOURCE_DIR}/ulibc++/include
 )
 
-set (CMAKE_CXX_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64 -nostdlib -nostdlib++ -ffreestanding -mcmodel=medany")
+set (CMAKE_CXX_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64 -nostdlib -nostdlib++ -ffreestanding -mcmodel=medany -fno-rtti -fno-exceptions")
 
 add_library(${ULIBCXX_NAME} ${ULIBCXX_SRC})
 
