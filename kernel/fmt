@@ -1,0 +1,71 @@
+// -*- C++ -*-
+
+#include <cstdint>
+#include <type_traits>
+
+#include "uart"
+
+namespace fmt {
+auto puts(const char *str) {
+  if (str != nullptr && *str != '\0') {
+    for (; *str != '\0'; ++str) {
+      uart::putc(*str);
+    }
+  }
+}
+
+template <typename T>
+void format_arg(char *buffer, uint32_t size, const T &arg) {
+  // 简单实现整数转换
+  if constexpr (std::is_integral_v<T>) {
+    char *end = buffer + size - 1;
+    *end = '\0';
+    char *ptr = end - 1;
+    T value = arg;
+    if (value == 0) {
+      *(--ptr) = '0';
+    } else {
+      bool neg = (value < 0);
+      if (neg) value = -value;
+      while (value > 0 && ptr > buffer) {
+        *(--ptr) = '0' + (value % 10);
+        value /= 10;
+      }
+      if (neg) *(--ptr) = '-';
+    }
+    puts(ptr); 
+  } else if constexpr (std::is_same_v<T, const char *> ||
+                       std::is_same_v<T, char *>) {
+    puts(arg);
+  }
+}
+
+template <typename... Args>
+void print_format(const char *fmt, Args... args);
+
+auto print_format(const char *fmt) -> void {
+  puts(fmt);
+}
+
+template <typename First, typename... Next>
+auto print_format(const char *fmt, First first, Next... next) -> void {
+  while (fmt != nullptr && *fmt != '\0') {
+    if (*fmt == '{' && (fmt + 1) != nullptr && *(fmt + 1) == '}') {
+      char buffer[32];
+      format_arg(buffer, sizeof(buffer), first);
+      fmt += 2;
+      print_format(fmt, next...);
+    } else {
+      uart::putc(*fmt);
+      ++fmt;
+    }
+  }
+}
+
+template <typename... Args>
+auto print(const char *fmt, Args... args) -> void {
+  print_format(fmt, args...);
+}
+
+auto print(const char *str) -> void { puts(str); }
+}  // namespace fmt
