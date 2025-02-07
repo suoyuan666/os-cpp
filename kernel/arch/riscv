@@ -11,35 +11,35 @@ constexpr uint64_t MSTATUS_MPP_M{3ULL << 11U};
 constexpr uint64_t MSTATUS_MPP_S{1ULL << 11U};
 constexpr uint64_t MSTATUS_MPP_U{0ULL << 11U};
 
-constexpr auto r_mstatus = []() -> uint64_t {
+auto r_mstatus() -> uint64_t {
   uint64_t rs{};
   asm volatile("csrr %0, mstatus" : "=r"(rs));
   return rs;
 };
-constexpr auto w_mstatus = [](const uint64_t value) -> void {
+auto w_mstatus(uint64_t value) -> void {
   asm volatile("csrw mstatus, %0" : : "r"(value));
 };
 
-constexpr auto w_mepc = [](const uint64_t addr) -> void {
+auto w_mepc(uint64_t addr) -> void {
   asm volatile("csrw mepc, %0" : : "r"(addr));
 };
 
-constexpr auto w_satp = [](const uint64_t value) -> void {
+auto w_satp(uint64_t value) -> void {
   asm volatile("csrw satp, %0" : : "r"(value));
 };
 
-constexpr auto w_medeleg = [](const uint64_t value) -> void {
+auto w_medeleg(uint64_t value) -> void {
   asm volatile("csrw medeleg, %0" : : "r"(value));
 };
 
-constexpr auto w_mideleg = [](const uint64_t value) -> void {
+auto w_mideleg(uint64_t value) -> void {
   asm volatile("csrw mideleg, %0" : : "r"(value));
 };
 
-constexpr auto w_pmpaddr0 = [](const uint64_t value) -> void {
+auto w_pmpaddr0(uint64_t value) -> void {
   asm volatile("csrw pmpaddr0, %0" : : "r"(value));
 };
-constexpr auto w_pmpcfg0 = [](const uint64_t value) -> void {
+auto w_pmpcfg0(uint64_t value) -> void {
   asm volatile("csrw pmpcfg0, %0" : : "r"(value));
 };
 
@@ -47,21 +47,28 @@ constexpr uint64_t SIE_SEIE{};  // extenal
 constexpr uint64_t SIE_STIE{};  // time
 constexpr uint64_t SIE_SSIE{};  // software
 
-constexpr auto w_sie = [](const uint64_t value) -> void {
+auto w_sie(uint64_t value) -> void {
   asm volatile("csrw sie, %0" : : "r"(value));
 };
-constexpr auto r_sie = []() -> uint64_t {
+auto r_sie() -> uint64_t {
   uint64_t rs{};
   asm volatile("csrr %0, sie" : "=r"(rs));
   return rs;
 };
 
-constexpr auto sfence_vma = []() -> void {
-  asm volatile("sfence.vma zero, zero");
+auto sfence_vma() -> void { asm volatile("sfence.vma zero, zero"); };
+
+auto w_stvec(uint64_t value) -> void {
+  asm volatile("csrw stvec, %0" : : "r"(value));
 };
 
-constexpr auto w_stvec = [](const uint64_t value) -> void {
-  asm volatile("csrw stvec, %0" : : "r"(value));
+auto w_sstatus(uint64_t value) -> void {
+  asm volatile("csrw sstatus, %0" : : "r"(value));
+};
+auto r_sstatus() -> uint64_t {
+  uint64_t rs{};
+  asm volatile("csrr %0, sstatus" : "=r"(rs));
+  return rs;
 };
 
 // for page table
@@ -73,30 +80,24 @@ constexpr uint64_t PTE_U{1ULL << 4U};
 
 constexpr uint32_t PGSIZE{4096U};
 
-constexpr auto PG_ROUND_UP = [](const uint64_t addr) -> uint64_t {
+auto PG_ROUND_UP(uint64_t addr) -> uint64_t {
   return (addr + PGSIZE - 1) & ~(PGSIZE - 1);
 };
-constexpr auto PG_ROUND_DOWN = [](const uint64_t addr) -> uint64_t {
+auto PG_ROUND_DOWN(uint64_t addr) -> uint64_t {
   return (addr) & ~(PGSIZE - 1);
 };
 
-constexpr auto PTE2PA = [](const uint64_t pte) -> uint64_t {
-  return (pte >> 10U) << 12U;
-};
-constexpr auto PA2PTE = [](const uint64_t pa) -> uint64_t {
-  return (pa >> 12U) << 10U;
-};
+auto PTE2PA(uint64_t pte) -> uint64_t { return (pte >> 10U) << 12U; };
+auto PA2PTE(uint64_t pa) -> uint64_t { return (pa >> 12U) << 10U; };
 
-constexpr auto PTE_FLAGS = [](const uint64_t pte) -> uint64_t {
+auto PTE_FLAGS(uint64_t pte) -> uint64_t {
   return pte & 1023U;  // (1023)_10 == (11,1111,1111)_2
 };
 
 constexpr uint32_t PX_MASK{0x1FF};
 constexpr uint32_t PG_SHIFT{12};
-constexpr auto PX_SHIFT = [](uint32_t level) -> uint64_t {
-  return PG_SHIFT + 9 * level;
-};
-constexpr auto PX = [](uint32_t level, const uint64_t pte) -> uint64_t {
+auto PX_SHIFT(uint32_t level) -> uint64_t { return PG_SHIFT + 9 * level; };
+auto PX(uint32_t level, uint64_t pte) -> uint64_t {
   return (pte >> PX_SHIFT(level)) & PX_MASK;
 };
 
@@ -104,6 +105,8 @@ constexpr auto PX = [](uint32_t level, const uint64_t pte) -> uint64_t {
 constexpr uint64_t VA_MAX{1ULL << 38U};
 constexpr uint64_t SATP_SV39{8ULL << 60U};
 
-constexpr auto MAKE_SATP = [](uint64_t* pagetable) {
+auto MAKE_SATP(uint64_t* pagetable) {
   return SATP_SV39 | ((uint64_t)pagetable >> 12U);
 };
+
+auto intr_off() -> void {}
