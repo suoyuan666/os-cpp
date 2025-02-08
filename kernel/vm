@@ -6,6 +6,8 @@
 #include "arch/riscv"
 
 namespace vm {
+extern "C" char trampoline[];
+extern "C" char end[];
 // qemu -machine virt is set up like this,
 // based on qemu's hw/riscv/virt.c:
 //
@@ -54,18 +56,51 @@ constexpr auto KSTACK = [](uint64_t pa) -> uint64_t {
 class kernel_vm {
   struct list {
     struct list *next;
-  } run{};
+  };
   struct list *freelist{};
 
  public:
-  kernel_vm();
-  auto free(void *addr) -> void;
-  auto alloc() -> std::optional<uint64_t *>;
+  kernel_vm() {
+    for (auto p_start = (uint64_t)end; p_start != PHY_END; p_start += PGSIZE) {
+      free(reinterpret_cast<void *>(p_start));
+    }
+  }
+
+  auto free(void *addr) -> void {
+    auto *tmp = static_cast<struct list *>(addr);
+    tmp->next = freelist;
+    freelist = tmp;
+  }
+  auto alloc() -> std::optional<uint64_t *> {
+    auto *tmp = freelist;
+    if (tmp) {
+      freelist = tmp->next;
+      auto rs_val = reinterpret_cast<uint64_t *>(tmp);
+      return {rs_val};
+    }
+    return {};
+  }
 };
-kernel_vm kevm{};
+
+static kernel_vm kevm{};
 
 auto init() -> void;
 auto map_pages(uint64_t *pagetable, uint64_t va, uint64_t pa, uint64_t size,
                uint32_t flag) -> bool;
 auto inithart() -> void;
+auto uvm_alloc() -> uint64_t *;
+auto uvm_first(uint64_t *pagetable, unsigned char *src, uint32_t size) -> void;
+auto uvm_unmap(uint64_t *pagetable, uint64_t va, uint64_t npages, bool do_free)
+    -> void;
+auto uvm_free(uint64_t *pagetable, uint64_t sz) -> void;
+auto uvm_dealloc(uint64_t *pagetable, uint64_t oldsz, uint64_t newsz)
+    -> uint64_t;
+auto uvm_alloc(uint64_t *pagetable, uint64_t oldsz, uint64_t newsz, int xperm)
+    -> uint64_t;
+auto copyin(uint64_t *pagetable, char *dst, uint64_t srcva, uint64_t len)
+    -> bool;
+auto copyout(uint64_t *pagetable, uint64_t dstva, char *src, uint64_t len)
+    -> bool;
+auto uvm_copy(uint64_t *old_pagetable, uint64_t *new_pagetable, uint64_t sz)
+    -> bool;
 }  // namespace vm
