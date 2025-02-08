@@ -1,5 +1,8 @@
 // -*- C++ -*-
+#pragma once
 #include <cstdint>
+
+#include "spinlock"
 
 namespace proc {
 constexpr uint32_t NPROC{100};
@@ -23,16 +26,78 @@ struct context {
   uint64_t s11;
 };
 
+struct trapframe {
+  /*   0 */ uint64_t kernel_satp;    // kernel page table
+  /*   8 */ uint64_t kernel_sp;      // top of process's kernel stack
+  /*  16 */ uint64_t kernel_trap;    // usertrap()
+  /*  24 */ uint64_t epc;            // saved user program counter
+  /*  32 */ uint64_t kernel_hartid;  // saved kernel tp
+  /*  40 */ uint64_t ra;
+  /*  48 */ uint64_t sp;
+  /*  56 */ uint64_t gp;
+  /*  64 */ uint64_t tp;
+  /*  72 */ uint64_t t0;
+  /*  80 */ uint64_t t1;
+  /*  88 */ uint64_t t2;
+  /*  96 */ uint64_t s0;
+  /* 104 */ uint64_t s1;
+  /* 112 */ uint64_t a0;
+  /* 120 */ uint64_t a1;
+  /* 128 */ uint64_t a2;
+  /* 136 */ uint64_t a3;
+  /* 144 */ uint64_t a4;
+  /* 152 */ uint64_t a5;
+  /* 160 */ uint64_t a6;
+  /* 168 */ uint64_t a7;
+  /* 176 */ uint64_t s2;
+  /* 184 */ uint64_t s3;
+  /* 192 */ uint64_t s4;
+  /* 200 */ uint64_t s5;
+  /* 208 */ uint64_t s6;
+  /* 216 */ uint64_t s7;
+  /* 224 */ uint64_t s8;
+  /* 232 */ uint64_t s9;
+  /* 240 */ uint64_t s10;
+  /* 248 */ uint64_t s11;
+  /* 256 */ uint64_t t3;
+  /* 264 */ uint64_t t4;
+  /* 272 */ uint64_t t5;
+  /* 280 */ uint64_t t6;
+};
+
+#ifndef CPU_DEF
+#define CPU_DEF
+struct cpu {
+  struct process *proc;
+  struct context context;
+  uint32_t noff;
+  uint32_t intena;
+};
+#endif
+
 enum proc_status : char { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 struct process {
+  struct spinlock::lock lock;
+
+  char name[32];
   enum proc_status status;
   uint32_t pid;
+  uint64_t sz;
+  void *chan;
+  bool killed;
+  int xstate;
 
-  struct context;
+  struct process *parent;
+
   uint64_t kernel_stack;
+  uint64_t *pagetable;
+  struct trapframe *trapframe;
+  struct context context;
 };
 
 auto map_stack(uint64_t *kpt) -> void;
 auto init() -> void;
+auto curr_proc() -> struct process *;
+auto curr_cpu() -> struct cpu *;
 }  // namespace proc
