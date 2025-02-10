@@ -7,7 +7,7 @@
 #include "arch/riscv"
 #include "fmt"
 #include "fs"
-#include "spinlock"
+#include "lock"
 #include "trap"
 #include "vm"
 
@@ -25,7 +25,7 @@ process *init_proc;
 struct cpu *cpu;
 uint32_t next_pid{1};
 
-spinlock::lock wait_lock;
+lock::spinlock wait_lock;
 
 auto forkret() -> void;
 extern "C" auto swtch(struct context *, struct context *) -> void;
@@ -88,7 +88,7 @@ auto free(struct process *p) -> void {
 
 auto alloc_proc() -> std::optional<struct process *> {
   for (auto &p : proc_list) {
-    spinlock::acquire(&p.lock);
+    lock::spin_acquire(&p.lock);
     if (p.status == proc_status::UNUSED) {
       p.pid = alloc_pid();
       p.status = proc_status::USED;
@@ -102,7 +102,7 @@ auto alloc_proc() -> std::optional<struct process *> {
 
       return {&p};
     }
-    spinlock::release(&p.lock);
+    lock::spin_release(&p.lock);
   }
 
   return {};
@@ -118,7 +118,7 @@ auto scheduler() -> void {
     auto found{false};
 
     for (auto &p : proc_list) {
-      spinlock::acquire(&p.lock);
+      lock::spin_acquire(&p.lock);
       if (p.status == proc_status::RUNNABLE) {
         p.status = proc_status::RUNNING;
         c->proc = &p;
@@ -127,7 +127,7 @@ auto scheduler() -> void {
         c->proc = nullptr;
         found = true;
       }
-      spinlock::release(&p.lock);
+      lock::spin_release(&p.lock);
     }
 
     if (found == false) {
@@ -140,7 +140,7 @@ auto scheduler() -> void {
 auto sched() -> void {
   auto *p = curr_proc();
 
-  if (spinlock::holding(&p->lock) == false) {
+  if (lock::spin_holding(&p->lock) == false) {
     fmt::panic("proc::sched: should hold lock");
   }
   if (curr_cpu()->noff != 1) {
@@ -157,16 +157,16 @@ auto sched() -> void {
 
 auto yield() -> void {
   auto *p = curr_proc();
-  spinlock::acquire(&p->lock);
+  lock::spin_acquire(&p->lock);
   p->status = proc_status::RUNNABLE;
   sched();
-  spinlock::release(&p->lock);
+  lock::spin_release(&p->lock);
 }
 
 auto forkret() -> void {
   static bool first{true};
 
-  spinlock::release(&curr_proc()->lock);
+  lock::spin_release(&curr_proc()->lock);
 
   if (first) {
     fs::init(1);
@@ -190,31 +190,31 @@ auto user_init() -> void {
   std::strncpy(init_proc->name, "initcode", sizeof(init_proc->name));
   init_proc->status = proc_status::RUNNABLE;
 
-  spinlock::release(&init_proc->lock);
+  lock::spin_release(&init_proc->lock);
 }
 
-auto sleep(void *chan, struct spinlock::lock &lock) {
+auto sleep(void *chan, struct lock::spinlock &lock) -> void {
   auto *p = curr_proc();
 
-  spinlock::acquire(&p->lock);
-  spinlock::release(&lock);
+  lock::spin_acquire(&p->lock);
+  lock::spin_release(&lock);
 
   p->chan = chan;
   p->status = proc_status::SLEEPING;
 
   p->chan = nullptr;
-  spinlock::release(&p->lock);
-  spinlock::acquire(&lock);
+  lock::spin_release(&p->lock);
+  lock::spin_acquire(&lock);
 }
 
-auto wakeup(void *chan) {
+auto wakeup(void *chan) -> void {
   for (auto &p : proc_list) {
     if (&p != curr_proc()) {
-      spinlock::acquire(&p.lock);
+      lock::spin_acquire(&p.lock);
       if (p.status == proc_status::SLEEPING && p.chan == chan) {
         p.status = proc_status::RUNNABLE;
       }
-      spinlock::release(&p.lock);
+      lock::spin_release(&p.lock);
     }
   }
 }
@@ -230,30 +230,30 @@ auto reparent(struct process &p) -> void {
 
 auto kill(uint32_t pid) -> int {
   for (auto &p : proc_list) {
-    spinlock::acquire(&p.lock);
+    lock::spin_acquire(&p.lock);
     if (p.pid == pid) {
       p.killed = true;
       if (p.status == proc_status::SLEEPING) {
         p.status = proc_status::RUNNABLE;
       }
-      spinlock::release(&p.lock);
+      lock::spin_release(&p.lock);
       return 0;
     }
-    spinlock::release(&p.lock);
+    lock::spin_release(&p.lock);
   }
   return -1;
 }
 
 auto set_killed(struct process *proc) -> void {
-  spinlock::acquire(&proc->lock);
+  lock::spin_acquire(&proc->lock);
   proc->killed = true;
-  spinlock::release(&proc->lock);
+  lock::spin_release(&proc->lock);
 }
 
 auto get_killed(struct process *proc) -> bool {
-  spinlock::acquire(&proc->lock);
+  lock::spin_acquire(&proc->lock);
   auto rs = proc->killed;
-  spinlock::release(&proc->lock);
+  lock::spin_release(&proc->lock);
   return rs;
 }
 
@@ -284,7 +284,7 @@ auto fork() -> int32_t {
 
   if (vm::uvm_copy(p->pagetable, np->pagetable, p->sz) == false) {
     free(np);
-    spinlock::release(&np->lock);
+    lock::spin_release(&np->lock);
     return -1;
   }
   np->sz = p->sz;
@@ -297,15 +297,15 @@ auto fork() -> int32_t {
 
   auto rs = np->pid;
 
-  spinlock::release(&np->lock);
+  lock::spin_release(&np->lock);
 
-  spinlock::acquire(&wait_lock);
+  lock::spin_acquire(&wait_lock);
   np->parent = p;
-  spinlock::release(&wait_lock);
+  lock::spin_release(&wait_lock);
 
-  spinlock::acquire(&np->lock);
+  lock::spin_acquire(&np->lock);
   np->status = proc_status::RUNNABLE;
-  spinlock::release(&np->lock);
+  lock::spin_release(&np->lock);
 
   return static_cast<int32_t>(rs);
 }
@@ -316,20 +316,20 @@ auto exit(int status) -> void {
     fmt::panic("proc::exit: init exiting");
   }
 
-  spinlock::acquire(&wait_lock);
+  lock::spin_acquire(&wait_lock);
   reparent(*p);
   wakeup(p->parent);
 
   p->xstate = status;
   p->status = proc_status::ZOMBIE;
-  spinlock::release(&wait_lock);
+  lock::spin_release(&wait_lock);
 
   sched();
   fmt::panic("proc::exit: zombie exit");
 }
 
 auto wait(uint64_t addr) -> int {
-  spinlock::acquire(&wait_lock);
+  lock::spin_acquire(&wait_lock);
   auto *p = curr_proc();
 
   while (true) {
@@ -337,33 +337,51 @@ auto wait(uint64_t addr) -> int {
 
     for (auto &cp : proc_list) {
       if (cp.parent == p) {
-        spinlock::acquire(&cp.lock);
+        lock::spin_acquire(&cp.lock);
 
         havekids = true;
         if (cp.status == ZOMBIE) {
           auto pid = cp.pid;
           if (addr != 0 && vm::copyout(p->pagetable, addr, (char *)&cp.xstate,
                                        sizeof(cp.xstate)) == false) {
-            spinlock::release(&cp.lock);
-            spinlock::release(&wait_lock);
+            lock::spin_release(&cp.lock);
+            lock::spin_release(&wait_lock);
             return -1;
           }
           free(&cp);
-          spinlock::release(&cp.lock);
-          spinlock::release(&wait_lock);
+          lock::spin_release(&cp.lock);
+          lock::spin_release(&wait_lock);
           return static_cast<int32_t>(pid);
         }
 
-        spinlock::release(&cp.lock);
+        lock::spin_release(&cp.lock);
       }
     }
 
     if (havekids == false || get_killed(p)) {
-      spinlock::release(&wait_lock);
+      lock::spin_release(&wait_lock);
       return -1;
     }
 
     sleep(p, wait_lock);
   }
+}
+
+auto either_copyout(bool user_dst, uint64_t dst, void *src, uint64_t len) -> int {
+  auto *p = curr_proc();
+  if (user_dst) {
+    return vm::copyout(p->pagetable, dst, (char*)src, len);
+  } 
+  std::memmove((char*)dst, src, len);
+  return 0;
+}
+
+auto either_copyin(void *dst, bool user_dst, uint64_t src, uint64_t len) -> int {
+  auto *p =curr_proc();
+  if (user_dst) {
+    return vm::copyin(p->pagetable, (char*)dst, src, len);
+  }
+  std::memmove(dst, (char*)src, len);
+  return 0;
 }
 }  // namespace proc

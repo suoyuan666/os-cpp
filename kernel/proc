@@ -2,7 +2,7 @@
 #pragma once
 #include <cstdint>
 
-#include "spinlock"
+#include "lock"
 
 namespace proc {
 constexpr uint32_t NPROC{100};
@@ -78,7 +78,7 @@ struct cpu {
 enum proc_status : char { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 struct process {
-  struct spinlock::lock lock;
+  struct lock::spinlock lock;
 
   char name[32];
   enum proc_status status;
@@ -100,4 +100,12 @@ auto map_stack(uint64_t *kpt) -> void;
 auto init() -> void;
 auto curr_proc() -> struct process *;
 auto curr_cpu() -> struct cpu *;
+auto sleep(void *chan, struct lock::spinlock &lock) -> void;
+auto wakeup(void *chan) -> void;
+auto grow(int n) -> int;
+auto fork() -> int32_t;
+auto exit(int status) -> void;
+auto wait(uint64_t addr) -> int;
+auto either_copyin(void *dst, bool user_dst, uint64_t src, uint64_t len) -> int;
+auto either_copyout(bool user_dst, uint64_t dst, void *src, uint64_t len) -> int;
 }  // namespace proc
