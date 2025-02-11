@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "lock"
+#include "file"
 
 namespace proc {
 constexpr uint32_t NPROC{100};
@@ -94,6 +95,8 @@ struct process {
   uint64_t *pagetable;
   struct trapframe *trapframe;
   struct context context;
+  struct file::file *ofile [file::NOFILE];
+  struct file::inode *cwd;
 };
 
 auto map_stack(uint64_t *kpt) -> void;

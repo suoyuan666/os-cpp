@@ -5,6 +5,7 @@
 #include <optional>
 
 #include "arch/riscv"
+#include "file"
 #include "fmt"
 #include "fs"
 #include "lock"
@@ -188,6 +189,7 @@ auto user_init() -> void {
   init_proc->trapframe->sp = PGSIZE;
 
   std::strncpy(init_proc->name, "initcode", sizeof(init_proc->name));
+  init_proc->cwd = fs::namei((char*)"/");
   init_proc->status = proc_status::RUNNABLE;
 
   lock::spin_release(&init_proc->lock);
@@ -293,6 +295,13 @@ auto fork() -> int32_t {
 
   np->trapframe->a0 = 0;
 
+  for (uint32_t i{0}; i < file::NOFILE; ++i) {
+    if (p->ofile[i] != nullptr) {
+      np->ofile[i] = file::dup(p->ofile[i]);
+    }
+  }
+  np->cwd = fs::idup(p->cwd);
+
   std::strncpy(np->name, p->name, sizeof(p->name));
 
   auto rs = np->pid;
@@ -315,6 +324,18 @@ auto exit(int status) -> void {
   if (p == init_proc) {
     fmt::panic("proc::exit: init exiting");
   }
+
+  for (uint32_t fd {0}; fd < file::NOFILE; ++fd) {
+    if (p->ofile[fd] != nullptr) {
+      file::close(p->ofile[fd]);
+      p->ofile[fd] = nullptr;
+    }
+  }
+
+  log::begin_op();
+  fs::iput(p->cwd);
+  log::end_op();
+  p->cwd = nullptr;
 
   lock::spin_acquire(&wait_lock);
   reparent(*p);
