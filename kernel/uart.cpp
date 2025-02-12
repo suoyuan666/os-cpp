@@ -1,37 +1,47 @@
 #include <cstdint>
 
+#include "console"
+#include "lock"
 #include "optional"
+#include "proc"
 
 namespace uart {
-constexpr uint64_t UART_BASE{0x10000000ULL};
-
-constexpr auto reg = [](const uint64_t offset) -> char* {
-  return (char*)(UART_BASE + offset);
-};
-
-constexpr auto read_reg = [](const uint64_t offset) -> char {
-  return *reg(offset);
-};
-constexpr auto write_reg = [](const uint64_t offset,
-                              const uint64_t value) -> void {
-  *reg(offset) = value;
-};
-
 constexpr uint64_t RHR{0};
 constexpr uint64_t THR{0};
 constexpr uint64_t IER{1};
 constexpr uint64_t IER_RX_ENABLE{(1ULL << 0U)};
 constexpr uint64_t IER_TX_ENABLE{(1ULL << 1U)};
 constexpr uint64_t FCR{2};
-constexpr uint64_t FCR_FIFO_ENABLE{1 << 0};
-constexpr uint64_t FCR_FIFO_CLEAR{3 << 1};
-// constexpr uint64_t ISR {2};
+constexpr uint64_t FCR_FIFO_ENABLE{1U << 0U};
+constexpr uint64_t FCR_FIFO_CLEAR{3U << 1U};
+constexpr uint64_t ISR{2};
 constexpr uint64_t LCR{3};
-constexpr uint64_t LCR_EIGHT_BITS{3 << 0};
-constexpr uint64_t LCR_BAUD_LATCH{1 << 7};
+constexpr uint64_t LCR_EIGHT_BITS{3U << 0U};
+constexpr uint64_t LCR_BAUD_LATCH{1U << 7U};
 constexpr uint64_t LSR{5};
 // constexpr uint64_t LSR_RX_READY {1<<0};
-constexpr uint64_t LSR_TX_IDLE{1 << 5};
+constexpr uint64_t LSR_TX_IDLE{1U << 5U};
+
+struct lock::spinlock uart_tx_lock;
+
+constexpr uint32_t UART_TX_BUF_SIZE{32};
+char uart_tx_buf[UART_TX_BUF_SIZE];
+uint64_t uart_tx_w;
+uint64_t uart_tx_r;
+
+constexpr uint64_t UART_BASE{0x10000000ULL};
+
+static inline auto reg(const uint64_t offset) -> char* {
+  return (char*)(UART_BASE + offset);
+};
+
+static inline auto read_reg(const uint64_t offset) -> char {
+  return *reg(offset);
+};
+static inline auto write_reg(const uint64_t offset, const uint64_t value)
+    -> void {
+  *reg(offset) = value;
+};
 
 auto init() -> void {
   write_reg(IER, 0x00);
@@ -41,18 +51,70 @@ auto init() -> void {
   write_reg(LCR, LCR_EIGHT_BITS);
   write_reg(FCR, FCR_FIFO_ENABLE | FCR_FIFO_CLEAR);
   write_reg(IER, IER_RX_ENABLE | IER_TX_ENABLE);
+  lock::spin_init(uart_tx_lock, (char*)"uart");
+}
+
+auto start() -> void {
+  while (true) {
+    if (uart_tx_w == uart_tx_r) {
+      read_reg(ISR);
+      return;
+    }
+
+    if ((read_reg(LSR) & LSR_TX_IDLE) == 0) {
+      return;
+    }
+
+    int c = uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE];
+    uart_tx_r += 1;
+
+    proc::wakeup(&uart_tx_r);
+
+    write_reg(THR, c);
+  }
 }
 
 auto putc(char c) -> void {
-  while ((read_reg(LSR) & LSR_TX_IDLE) == 0) {
-  };
+  lock::spin_acquire(&uart_tx_lock);
+
+  while (uart_tx_w == uart_tx_r + UART_TX_BUF_SIZE) {
+    proc::sleep(&uart_tx_r, uart_tx_lock);
+  }
+
+  uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE] = c;
+  ++uart_tx_w;
+  start();
+  lock::spin_release(&uart_tx_lock);
+}
+
+auto kputc(char c) -> void {
+  lock::push_off();
+
+  while ((read_reg(LSR) & LSR_TX_IDLE) == 0);
   write_reg(THR, c);
+
+  lock::pop_off();
 }
 
 auto getc() -> std::optional<char> {
   if (read_reg(LSR) & 0x01ULL) {
-    return {read_reg(RHR)};
+    auto rs = read_reg(RHR);
+    return {rs};
   }
   return {};
+}
+
+auto intr() -> void {
+  while (true) {
+    auto opt_c = getc();
+    if (!opt_c.has_value()) {
+      break;
+    }
+    console::intr(opt_c.value());
+  }
+
+  spin_acquire(&uart_tx_lock);
+  start();
+  spin_release(&uart_tx_lock);
 }
 }  // namespace uart

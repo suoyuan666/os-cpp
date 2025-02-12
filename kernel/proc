@@ -2,11 +2,11 @@
 #pragma once
 #include <cstdint>
 
-#include "lock"
 #include "file"
+#include "lock"
 
 namespace proc {
-constexpr uint32_t NPROC{100};
+constexpr uint32_t NPROC{64};
 
 struct context {
   uint64_t ra;
@@ -66,15 +66,14 @@ struct trapframe {
   /* 280 */ uint64_t t6;
 };
 
-#ifndef CPU_DEF
-#define CPU_DEF
 struct cpu {
   struct process *proc;
   struct context context;
   uint32_t noff;
   uint32_t intena;
 };
-#endif
+
+extern struct cpu cpu;
 
 enum proc_status : char { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
@@ -84,7 +83,6 @@ struct process {
   char name[32];
   enum proc_status status;
   uint32_t pid;
-  uint64_t sz;
   void *chan;
   bool killed;
   int xstate;
@@ -92,23 +90,31 @@ struct process {
   struct process *parent;
 
   uint64_t kernel_stack;
+  uint64_t sz;
   uint64_t *pagetable;
   struct trapframe *trapframe;
   struct context context;
-  struct file::file *ofile [file::NOFILE];
+  struct file::file *ofile[file::NOFILE];
   struct file::inode *cwd;
 };
 
-auto map_stack(uint64_t *kpt) -> void;
 auto init() -> void;
+auto user_init() -> void;
+auto map_stack(uint64_t *kpt) -> void;
+auto cpuid() -> uint32_t;
 auto curr_proc() -> struct process *;
 auto curr_cpu() -> struct cpu *;
 auto sleep(void *chan, struct lock::spinlock &lock) -> void;
 auto wakeup(void *chan) -> void;
+auto yield() -> void;
+auto scheduler() -> void;
 auto grow(int n) -> int;
 auto fork() -> int32_t;
 auto exit(int status) -> void;
 auto wait(uint64_t addr) -> int;
+auto get_killed(struct process *proc) -> bool;
+auto set_killed(struct process *proc) -> void;
 auto either_copyin(void *dst, bool user_dst, uint64_t src, uint64_t len) -> int;
-auto either_copyout(bool user_dst, uint64_t dst, void *src, uint64_t len) -> int;
+auto either_copyout(bool user_dst, uint64_t dst, void *src, uint64_t len)
+    -> int;
 }  // namespace proc

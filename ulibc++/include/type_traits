@@ -39,4 +39,44 @@ template <class T>
 
 template <class T>
 constexpr bool is_integral_v = is_integral<T>::value;
+
+template<typename T>
+struct is_signed {
+    static constexpr bool value = false;
+};
+
+template<> struct is_signed<char>                { static constexpr bool value = (char)-1 < 0; };
+template<> struct is_signed<signed char>        { static constexpr bool value = true; };
+template<> struct is_signed<short>              { static constexpr bool value = true; };
+template<> struct is_signed<int>                { static constexpr bool value = true; };
+template<> struct is_signed<long>               { static constexpr bool value = true; };
+template<> struct is_signed<long long>          { static constexpr bool value = true; };
+template<> struct is_signed<float>              { static constexpr bool value = true; };
+template<> struct is_signed<double>             { static constexpr bool value = true; };
+template<> struct is_signed<long double>        { static constexpr bool value = true; };
+
+template<typename T>
+constexpr bool is_signed_v = is_signed<T>::value;
+
+template<typename T>
+struct make_unsigned {
+    static_assert(sizeof(T) == 0, "Unsupported type for make_unsigned");
+};
+
+template<> struct make_unsigned<char>            { using type = unsigned char; };
+template<> struct make_unsigned<signed char>     { using type = unsigned char; };
+template<> struct make_unsigned<short>           { using type = unsigned short; };
+template<> struct make_unsigned<int>             { using type = unsigned int; };
+template<> struct make_unsigned<long>            { using type = unsigned long; };
+template<> struct make_unsigned<long long>       { using type = unsigned long long; };
+
+// 对无符号类型直接返回自身
+template<> struct make_unsigned<unsigned char>     { using type = unsigned char; };
+template<> struct make_unsigned<unsigned short>    { using type = unsigned short; };
+template<> struct make_unsigned<unsigned int>      { using type = unsigned int; };
+template<> struct make_unsigned<unsigned long>     { using type = unsigned long; };
+template<> struct make_unsigned<unsigned long long>{ using type = unsigned long long; };
+
+template<typename T>
+using make_unsigned_t = typename make_unsigned<T>::type;
 }  // namespace std

@@ -7,6 +7,10 @@ SECTIONS {
   .text : {
     *(.text .text.*)
     . = ALIGN(0x1000);
+    _trampoline = .;
+    *(trampsec)
+    . = ALIGN(0x1000);
+    PROVIDE(etext = .);
   }
 
   .rodata : {
@@ -20,7 +24,7 @@ SECTIONS {
     . = ALIGN(16);
     *(.sdata .sdata.*) /* do not need to distinguish this from .data */
     . = ALIGN(16);
-    *(.data .data.*)
+    *(.rodata .rodata.*)
   }
 
   .bss : {

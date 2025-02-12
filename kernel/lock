@@ -1,0 +1,37 @@
+// -*- C++ -*-
+#pragma once
+
+#include <cstdint>
+namespace proc {
+struct cpu;
+}  // namespace proc
+
+namespace lock {
+struct spinlock {
+  bool locked;
+
+  char *name;
+  struct proc::cpu *cpu;
+};
+
+auto spin_init(struct spinlock &lock, char *name) -> void;
+auto spin_acquire(struct spinlock *lk) -> void;
+auto spin_release(struct spinlock *lk) -> void;
+auto spin_holding(struct spinlock *lock) -> bool;
+
+auto push_off() -> void;
+auto pop_off() -> void;
+
+struct sleeplock {
+  bool locked;
+  struct spinlock lk;
+
+  char *name;
+  uint32_t pid;
+};
+
+auto sleep_init(struct sleeplock &lock, char *name) -> void;
+auto sleep_acquire(struct sleeplock &lock) -> void;
+auto sleep_release(struct sleeplock &lock) -> void;
+auto sleep_holding(struct sleeplock &lock) -> bool;
+}  // namespace lock

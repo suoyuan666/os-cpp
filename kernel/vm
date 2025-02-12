@@ -1,13 +1,18 @@
 // -*- C++ -*-
-//
+#pragma once
+
 #include <cstdint>
 #include <optional>
 
+#include "fmt"
+#include "lock"
+
+#ifndef ARCH_RISCV
 #include "arch/riscv"
+#define ARCH_RISCV
+#endif
 
 namespace vm {
-extern "C" char trampoline[];
-extern "C" char end[];
 // qemu -machine virt is set up like this,
 // based on qemu's hw/riscv/virt.c:
 //
@@ -34,13 +39,13 @@ constexpr uint64_t VIRTIO_IRQ{1ULL};
 constexpr uint64_t PLIC{0x0c000000ULL};
 constexpr uint64_t PLIC_PRIORITY{PLIC + 0x0};
 constexpr uint64_t PLIC_PENDING{PLIC + 0x1000};
-constexpr auto PLIC_SENABLE = [](uint64_t hart) -> uint64_t {
+static inline auto PLIC_SENABLE(uint64_t hart) -> uint64_t {
   return PLIC + 0x2080 + (hart) * 0x100;
 };
-constexpr auto PLIC_SPRIORITY = [](uint64_t hart) -> uint64_t {
+static inline auto PLIC_SPRIORITY(uint64_t hart) -> uint64_t {
   return PLIC + 0x201000 + (hart) * 0x2000;
 };
-constexpr auto PLIC_SCLAIM = [](uint64_t hart) -> uint64_t {
+static inline auto PLIC_SCLAIM(uint64_t hart) -> uint64_t {
   return PLIC + 0x201004 + (hart) * 0x2000;
 };
 
@@ -48,42 +53,18 @@ constexpr uint64_t KERNEL_BASE{0x80000000ULL};
 constexpr uint64_t PHY_END{KERNEL_BASE + 128ULL * 1024ULL * 1024ULL};
 
 constexpr uint64_t TRAMPOLINE{VA_MAX - PGSIZE};
-constexpr uint64_t TRAMFRAME{TRAMPOLINE - PGSIZE};
-constexpr auto KSTACK = [](uint64_t pa) -> uint64_t {
-  return TRAMFRAME - (pa + 1) * 2 * PGSIZE;
+constexpr uint64_t TRAPFRAME{TRAMPOLINE - PGSIZE};
+static inline auto KSTACK(int pa) -> uint64_t {
+  return TRAMPOLINE - static_cast<uint64_t>((pa + 1) * 2) * PGSIZE;
 };
 
-class kernel_vm {
-  struct list {
-    struct list *next;
-  };
-  struct list *freelist{};
-
- public:
-  kernel_vm() {
-    for (auto p_start = (uint64_t)end; p_start != PHY_END; p_start += PGSIZE) {
-      free(reinterpret_cast<void *>(p_start));
-    }
-  }
-
-  auto free(void *addr) -> void {
-    auto *tmp = static_cast<struct list *>(addr);
-    tmp->next = freelist;
-    freelist = tmp;
-  }
-  auto alloc() -> std::optional<uint64_t *> {
-    auto *tmp = freelist;
-    if (tmp) {
-      freelist = tmp->next;
-      auto rs_val = reinterpret_cast<uint64_t *>(tmp);
-      return {rs_val};
-    }
-    return {};
-  }
+struct list {
+  struct list *next;
 };
 
-static kernel_vm kevm{};
-
+auto kinit() -> void;
+auto kfree(void *addr) -> void;
+auto kalloc() -> std::optional<uint64_t *>;
 auto init() -> void;
 auto map_pages(uint64_t *pagetable, uint64_t va, uint64_t pa, uint64_t size,
                uint32_t flag) -> bool;

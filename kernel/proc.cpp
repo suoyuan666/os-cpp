@@ -4,74 +4,103 @@
 #include <cstring>
 #include <optional>
 
+#ifndef ARCH_RISCV
 #include "arch/riscv"
+#define ARCH_RISCV
+#endif
+
 #include "file"
 #include "fmt"
 #include "fs"
 #include "lock"
+#include "log"
 #include "trap"
 #include "vm"
 
+extern "C" char trampoline[];
+extern "C" auto swtch(struct proc::context *, struct proc::context *) -> void;
+
 namespace proc {
 
-constexpr unsigned char initcode[] = {
+const unsigned char initcode[] = {
     0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 0x00,
     0x00, 0x93, 0x85, 0x35, 0x02, 0x93, 0x08, 0x70, 0x00, 0x73, 0x00,
     0x00, 0x00, 0x93, 0x08, 0x20, 0x00, 0x73, 0x00, 0x00, 0x00, 0xef,
     0xf0, 0x9f, 0xff, 0x2f, 0x69, 0x6e, 0x69, 0x74, 0x00, 0x00, 0x24,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
-process proc_list[NPROC];
-process *init_proc;
-struct cpu *cpu;
+struct process proc_list[NPROC];
+struct process *init_proc{};
+struct cpu cpu{};
 uint32_t next_pid{1};
 
-lock::spinlock wait_lock;
+struct lock::spinlock wait_lock;
+struct lock::spinlock pid_lock;
 
-auto forkret() -> void;
-extern "C" auto swtch(struct context *, struct context *) -> void;
+extern "C" auto forkret() -> void;
 
-auto curr_cpu() -> struct cpu * { return cpu; }
+auto cpuid() -> uint32_t { return r_tp(); }
+auto curr_cpu() -> struct cpu * { return &cpu; }
 auto curr_proc() -> struct process * { return curr_cpu()->proc; }
 
 auto init() -> void {
+  lock::spin_init(pid_lock, (char *)"next_pid");
+  lock::spin_init(wait_lock, (char *)"wait_lock");
+
   for (auto &proc : proc_list) {
+    lock::spin_init(proc.lock, (char *)"proc");
     proc.status = proc_status::UNUSED;
-    proc.kernel_stack = vm::KSTACK((uint64_t)&proc - (uint64_t)&proc_list);
+    proc.kernel_stack =
+        vm::KSTACK((int)((uint64_t)&proc - (uint64_t)&proc_list[0]));
   }
 }
 
 auto map_stack(uint64_t *kpt) -> void {
   for (auto &proc : proc_list) {
-    auto opt_pa = vm::kevm.alloc();
+    auto opt_pa = vm::kalloc();
     if (opt_pa.has_value()) {
       auto *pa = opt_pa.value();
-      auto va = vm::KSTACK((uint64_t)pa - (uint64_t)&proc);
+      auto va = vm::KSTACK((int)((uint64_t)&proc - (uint64_t)proc_list));
       vm::map_pages(kpt, va, (uint64_t)pa, PGSIZE, PTE_R | PTE_W);
+    } else {
+      fmt::panic("proc::map_stack: error");
     }
   }
 }
 
-auto alloc_pid() -> uint32_t { return next_pid++; }
+auto alloc_pid() -> uint32_t {
+  lock::spin_acquire(&pid_lock);
+  return next_pid++;
+  lock::spin_release(&pid_lock);
+}
 
 auto alloc_pagetable(struct process &p) -> uint64_t * {
   auto *uvm = vm::uvm_alloc();
-  vm::map_pages(uvm, vm::TRAMPOLINE, (uint64_t)vm::trampoline, PGSIZE,
-                PTE_R | PTE_X);
-  vm::map_pages(uvm, vm::TRAMFRAME, (uint64_t)p.trapframe, PGSIZE,
-                PTE_R | PTE_W);
+  if (uvm == nullptr) {
+    return nullptr;
+  }
+
+  if (vm::map_pages(uvm, vm::TRAMPOLINE, (uint64_t)trampoline, PGSIZE,
+                    PTE_R | PTE_X) == false) {
+    vm::uvm_free(uvm, 0);
+  }
+  if (vm::map_pages(uvm, vm::TRAPFRAME, (uint64_t)p.trapframe, PGSIZE,
+                    PTE_R | PTE_W) == false) {
+    vm::uvm_unmap(uvm, vm::TRAMPOLINE, 1, false);
+    vm::uvm_free(uvm, 0);
+  }
   return uvm;
 }
 
 auto free_pagetable(uint64_t *pagetable, uint64_t sz) -> void {
   vm::uvm_unmap(pagetable, vm::TRAMPOLINE, 1, false);
-  vm::uvm_unmap(pagetable, vm::TRAMFRAME, 1, false);
+  vm::uvm_unmap(pagetable, vm::TRAPFRAME, 1, false);
   vm::uvm_free(pagetable, sz);
 }
 
 auto free(struct process *p) -> void {
   if (p->trapframe) {
-    vm::kevm.free(p->trapframe);
+    vm::kfree(p->trapframe);
   }
   p->trapframe = nullptr;
   if (p->pagetable) {
@@ -87,30 +116,44 @@ auto free(struct process *p) -> void {
   p->status = proc_status::UNUSED;
 }
 
-auto alloc_proc() -> std::optional<struct process *> {
+auto alloc_proc() -> struct process * {
   for (auto &p : proc_list) {
     lock::spin_acquire(&p.lock);
     if (p.status == proc_status::UNUSED) {
       p.pid = alloc_pid();
       p.status = proc_status::USED;
 
-      p.trapframe = (struct trapframe *)vm::kevm.alloc().value();
-      p.pagetable = alloc_pagetable(p);
-      std::memset(&p.context, 0, sizeof(p.context));
+      auto opt_frame = vm::kalloc();
+      if (!opt_frame.has_value()) {
+        free(&p);
+        lock::spin_release(&p.lock);
+        return nullptr;
+      }
+      p.trapframe = (struct trapframe *)opt_frame.value();
 
+      p.pagetable = alloc_pagetable(p);
+      if (p.pagetable == nullptr) {
+        free(&p);
+        lock::spin_release(&p.lock);
+        return nullptr;
+      }
+
+      std::memset(&p.context, 0, sizeof(p.context));
       p.context.ra = (uint64_t)forkret;
       p.context.sp = p.kernel_stack + PGSIZE;
 
-      return {&p};
+      return &p;
     }
     lock::spin_release(&p.lock);
   }
+  fmt::panic("proc::alloc: no proc");
 
-  return {};
+  return nullptr;
 }
 
 auto scheduler() -> void {
   auto *c = curr_cpu();
+  struct process *p = nullptr;
   c->proc = nullptr;
 
   while (true) {
@@ -118,17 +161,17 @@ auto scheduler() -> void {
 
     auto found{false};
 
-    for (auto &p : proc_list) {
-      lock::spin_acquire(&p.lock);
-      if (p.status == proc_status::RUNNABLE) {
-        p.status = proc_status::RUNNING;
-        c->proc = &p;
-        swtch(&c->context, &p.context);
+    for (p = proc_list; p < &proc_list[NPROC]; ++p) {
+      lock::spin_acquire(&p->lock);
+      if (p->status == proc_status::RUNNABLE) {
+        p->status = proc_status::RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
 
         c->proc = nullptr;
         found = true;
       }
-      lock::spin_release(&p.lock);
+      lock::spin_release(&p->lock);
     }
 
     if (found == false) {
@@ -164,14 +207,14 @@ auto yield() -> void {
   lock::spin_release(&p->lock);
 }
 
-auto forkret() -> void {
-  static bool first{true};
+extern "C" auto forkret() -> void {
+  static int first{1};
 
   lock::spin_release(&curr_proc()->lock);
 
-  if (first) {
+  if (first == 1) {
     fs::init(1);
-    first = false;
+    first = 0;
     __sync_synchronize();
   }
 
@@ -179,20 +222,20 @@ auto forkret() -> void {
 }
 
 auto user_init() -> void {
-  auto *init_proc = alloc_proc().value();
+  auto *p = alloc_proc();
+  init_proc = p;
 
-  vm::uvm_first(init_proc->pagetable, (unsigned char *)initcode,
-                sizeof(initcode));
-  init_proc->sz = PGSIZE;
+  vm::uvm_first(p->pagetable, (unsigned char *)initcode, sizeof(initcode));
+  p->sz = PGSIZE;
 
-  init_proc->trapframe->epc = 0;
-  init_proc->trapframe->sp = PGSIZE;
+  p->trapframe->epc = 0;
+  p->trapframe->sp = PGSIZE;
 
-  std::strncpy(init_proc->name, "initcode", sizeof(init_proc->name));
-  init_proc->cwd = fs::namei((char*)"/");
-  init_proc->status = proc_status::RUNNABLE;
+  std::strncpy(p->name, "initcode", sizeof(p->name));
+  p->cwd = fs::namei((char *)"/");
+  p->status = proc_status::RUNNABLE;
 
-  lock::spin_release(&init_proc->lock);
+  lock::spin_release(&p->lock);
 }
 
 auto sleep(void *chan, struct lock::spinlock &lock) -> void {
@@ -276,13 +319,12 @@ auto grow(int n) -> int {
 }
 
 auto fork() -> int32_t {
-  auto opt_np = alloc_proc();
-  if (!opt_np.has_value()) {
+  auto *np = alloc_proc();
+  if (np == nullptr) {
     return -1;
   }
 
   auto *p = curr_proc();
-  auto *np = opt_np.value();
 
   if (vm::uvm_copy(p->pagetable, np->pagetable, p->sz) == false) {
     free(np);
@@ -325,7 +367,7 @@ auto exit(int status) -> void {
     fmt::panic("proc::exit: init exiting");
   }
 
-  for (uint32_t fd {0}; fd < file::NOFILE; ++fd) {
+  for (uint32_t fd{0}; fd < file::NOFILE; ++fd) {
     if (p->ofile[fd] != nullptr) {
       file::close(p->ofile[fd]);
       p->ofile[fd] = nullptr;
@@ -388,21 +430,23 @@ auto wait(uint64_t addr) -> int {
   }
 }
 
-auto either_copyout(bool user_dst, uint64_t dst, void *src, uint64_t len) -> int {
+auto either_copyout(bool user_dst, uint64_t dst, void *src, uint64_t len)
+    -> int {
   auto *p = curr_proc();
   if (user_dst) {
-    return vm::copyout(p->pagetable, dst, (char*)src, len);
-  } 
-  std::memmove((char*)dst, src, len);
+    return vm::copyout(p->pagetable, dst, (char *)src, len);
+  }
+  std::memmove((char *)dst, src, len);
   return 0;
 }
 
-auto either_copyin(void *dst, bool user_dst, uint64_t src, uint64_t len) -> int {
-  auto *p =curr_proc();
+auto either_copyin(void *dst, bool user_dst, uint64_t src, uint64_t len)
+    -> int {
+  auto *p = curr_proc();
   if (user_dst) {
-    return vm::copyin(p->pagetable, (char*)dst, src, len);
+    return vm::copyin(p->pagetable, (char *)dst, src, len);
   }
-  std::memmove(dst, (char*)src, len);
+  std::memmove(dst, (char *)src, len);
   return 0;
 }
 }  // namespace proc

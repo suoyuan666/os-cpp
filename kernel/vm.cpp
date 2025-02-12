@@ -4,39 +4,93 @@
 #include <cstring>
 #include <optional>
 
+#ifndef ARCH_RISCV
 #include "arch/riscv"
+#define ARCH_RISCV
+#endif
+
 #include "fmt"
 #include "proc"
+
+extern "C" char end[];
+extern "C" char trampoline[];
 
 namespace vm {
 
 extern "C" char etext[];
 
 uint64_t *kernel_pagetable;
-// kernel_vm kevm{};
+struct {
+  struct lock::spinlock lock{};
+  struct list *freelist{};
+} kmem{};
 
 auto kvm_make() -> std::optional<uint64_t *>;
+
+auto kinit() -> void {
+  lock::spin_init(kmem.lock, (char *)"kevm");
+  for (auto *p_start = (char *)PG_ROUND_UP((uint64_t)end);
+       p_start + PGSIZE <= (char *)PHY_END; p_start += PGSIZE) {
+    kfree(p_start);
+  }
+}
+
+auto kfree(void *addr) -> void {
+  auto *tmp = static_cast<struct list *>(addr);
+  lock::spin_acquire(&kmem.lock);
+  tmp->next = kmem.freelist;
+  kmem.freelist = tmp;
+  lock::spin_release(&kmem.lock);
+}
+
+auto kalloc() -> std::optional<uint64_t *> {
+  lock::spin_acquire(&kmem.lock);
+  auto *tmp = kmem.freelist;
+  if (tmp) {
+    kmem.freelist = tmp->next;
+    auto rs_val = (uint64_t *)(tmp);
+    lock::spin_release(&kmem.lock);
+    return {rs_val};
+  }
+  lock::spin_release(&kmem.lock);
+  return {};
+}
 
 auto init() -> void {
   auto opt_kpt = kvm_make();
   if (opt_kpt.has_value()) {
     kernel_pagetable = opt_kpt.value();
+  } else {
+    fmt::panic("vm::init: error");
   }
 }
 
 auto kvm_make() -> std::optional<uint64_t *> {
-  auto opt_kpt = kevm.alloc();
+  auto opt_kpt = kalloc();
   if (opt_kpt.has_value()) {
     auto *kpt = opt_kpt.value();
     std::memset(kpt, 0, PGSIZE);
-    map_pages(kpt, UART0, UART0, PGSIZE, PTE_R | PTE_W);
-    map_pages(kpt, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
-    map_pages(kpt, PLIC, PLIC, 0x4000000, PTE_R | PTE_W);
-    map_pages(kpt, KERNEL_BASE, KERNEL_BASE, (uint64_t)etext - KERNEL_BASE,
-              PTE_R | PTE_X);
-    map_pages(kpt, (uint64_t)etext, (uint64_t)etext, PHY_END - (uint64_t)etext,
-              PTE_R | PTE_W);
-    map_pages(kpt, TRAMPOLINE, (uint64_t)trampoline, PGSIZE, PTE_R | PTE_X);
+    if (map_pages(kpt, UART0, UART0, PGSIZE, PTE_R | PTE_W) == false) {
+      fmt::panic("vm::kvm_make: UART0");
+    }
+    if (map_pages(kpt, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W) == false) {
+      fmt::panic("vm::kvm_make: VIRTIO0");
+    }
+    if (map_pages(kpt, PLIC, PLIC, 0x4000000, PTE_R | PTE_W) == false) {
+      fmt::panic("vm::kvm_make: PLIC");
+    }
+    if (map_pages(kpt, KERNEL_BASE, KERNEL_BASE, (uint64_t)etext - KERNEL_BASE,
+                  PTE_R | PTE_X) == false) {
+      fmt::panic("vm::kvm_make: KERNEL_BASE");
+    }
+    if (map_pages(kpt, (uint64_t)etext, (uint64_t)etext,
+                  PHY_END - (uint64_t)etext, PTE_R | PTE_W) == false) {
+      fmt::panic("vm::kvm_make: etext");
+    }
+    if (map_pages(kpt, TRAMPOLINE, (uint64_t)trampoline, PGSIZE,
+                  PTE_R | PTE_X) == false) {
+      fmt::panic("vm::kvm_make: TRAMPOLINE");
+    }
     proc::map_stack(kpt);
     return {kpt};
   }
@@ -51,7 +105,7 @@ auto walk(uint64_t *pagetable, uint64_t va, bool alloc)
       pagetable = reinterpret_cast<uint64_t *>(PTE2PA(*pte));
     } else {
       if (alloc) {
-        auto opt_pagetable = kevm.alloc();
+        auto opt_pagetable = vm::kalloc();
         if (!opt_pagetable.has_value()) {
           return {};
         }
@@ -97,21 +151,37 @@ auto free_walk(uint64_t *pagetable) -> void {
       fmt::panic("vm::free_walk: leaf");
     }
   }
-  kevm.free(pagetable);
+  kfree(pagetable);
 }
 
 auto map_pages(uint64_t *pagetable, uint64_t va, uint64_t pa, uint64_t size,
                uint32_t flag) -> bool {
+  if ((va % PGSIZE) != 0) {
+    fmt::panic("mappages: va not aligned");
+  }
+  if ((size % PGSIZE) != 0) {
+    fmt::panic("mappages: size not aligned");
+  }
+  if (size == 0) {
+    fmt::panic("mappages: size");
+  }
+
   auto a = va;
   auto last = va + size - PGSIZE;
 
-  while (a != last) {
+  while (true) {
     auto opt_pte = walk(pagetable, a, true);
     if (!opt_pte.has_value()) {
       return false;
     }
-    auto pte = opt_pte.value();
+    auto *pte = opt_pte.value();
+    if (*pte & PTE_V) {
+      fmt::panic("vm::mappages: remap");
+    }
     *pte = PA2PTE(pa) | flag | PTE_V;
+    if (a == last) {
+      break;
+    }
     a += PGSIZE;
     pa += PGSIZE;
   }
@@ -125,7 +195,7 @@ auto inithart() -> void {
 }
 
 auto uvm_alloc() -> uint64_t * {
-  uint64_t *rs = kevm.alloc().value();
+  uint64_t *rs = kalloc().value();
   std::memset(rs, 0, PGSIZE);
   return rs;
 }
@@ -135,7 +205,7 @@ auto uvm_first(uint64_t *pagetable, unsigned char *src, uint32_t size) -> void {
     fmt::panic("uvm_first: size > PGSIZE");
   }
 
-  auto *mem = (char *)kevm.alloc().value();
+  auto *mem = (char *)kalloc().value();
   std::memset(mem, 0, PGSIZE);
   map_pages(pagetable, 0, (uint64_t)mem, PGSIZE, PTE_R | PTE_W | PTE_X | PTE_U);
   std::memmove(mem, src, size);
@@ -161,7 +231,7 @@ auto uvm_unmap(uint64_t *pagetable, uint64_t va, uint64_t npages, bool do_free)
     }
     if (do_free) {
       auto pa = PTE2PA(*pte);
-      kevm.free((void *)pa);
+      kfree((void *)pa);
     }
     *pte = 0;
   }
@@ -182,7 +252,7 @@ auto uvm_alloc(uint64_t *pagetable, uint64_t oldsz, uint64_t newsz, int xperm)
 
   oldsz = PG_ROUND_UP(oldsz);
   for (auto a{oldsz}; a < newsz; a += PGSIZE) {
-    auto opt_mem = kevm.alloc();
+    auto opt_mem = kalloc();
     if (!opt_mem.has_value()) {
       uvm_dealloc(pagetable, a, oldsz);
       return 0;
@@ -191,7 +261,7 @@ auto uvm_alloc(uint64_t *pagetable, uint64_t oldsz, uint64_t newsz, int xperm)
     std::memset(mem, 0, PGSIZE);
     if (map_pages(pagetable, a, (uint64_t)mem, PGSIZE, PTE_R | PTE_U | xperm) ==
         false) {
-      kevm.free(mem);
+      kfree(mem);
       uvm_dealloc(pagetable, a, oldsz);
       return 0;
     }
@@ -228,7 +298,7 @@ auto uvm_copy(uint64_t *old_pagetable, uint64_t *new_pagetable, uint64_t sz)
     auto pa = PTE2PA(*pte);
     auto flags = PTE_FLAGS(*pte);
 
-    auto opt_mem = kevm.alloc();
+    auto opt_mem = kalloc();
     if (!opt_mem.has_value()) {
       uvm_unmap(new_pagetable, i, i / PGSIZE, true);
       return false;

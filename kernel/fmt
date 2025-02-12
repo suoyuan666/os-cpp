@@ -1,60 +1,110 @@
 // -*- C++ -*-
+#pragma once
 
 #include <cstdint>
 #include <type_traits>
 
-#include "uart"
+#include "console"
 
 namespace fmt {
-auto puts(const char *str) {
-  if (str != nullptr && *str != '\0') {
-    for (; *str != '\0'; ++str) {
-      uart::putc(*str);
-    }
-  }
-}
+auto puts(const char *str) -> void;
 
 template <typename T>
-void format_arg(char *buffer, uint32_t size, const T &arg) {
-  // 简单实现整数转换
+void format_arg(char *buffer, uint32_t size, const T &arg,
+                bool is_hex = false) {
   if constexpr (std::is_integral_v<T>) {
-    char *end = buffer + size - 1;
-    *end = '\0';
-    char *ptr = end - 1;
-    T value = arg;
-    if (value == 0) {
-      *(--ptr) = '0';
-    } else {
-      bool neg = (value < 0);
-      if (neg) value = -value;
-      while (value > 0 && ptr > buffer) {
-        *(--ptr) = '0' + (value % 10);
-        value /= 10;
-      }
-      if (neg) *(--ptr) = '-';
+    // 确保缓冲区足够存放至少一个字符和终止符
+    if (size < 2) {
+      if (size >= 1) buffer[0] = '\0';
+      return;
     }
-    puts(ptr);
+
+    char *end = buffer + size - 1;
+    *end = '\0';          // 终止符
+    char *ptr = end - 1;  // 从倒数第二位开始填充
+
+    using UnsignedType = typename std::make_unsigned_t<T>;
+    UnsignedType unsigned_value;
+    bool neg = false;
+
+    // 处理有符号类型的负值
+    if constexpr (std::is_signed_v<T>) {
+      neg = (arg < 0);
+      unsigned_value = neg ? static_cast<UnsignedType>(-arg)
+                           : static_cast<UnsignedType>(arg);
+    } else {
+      unsigned_value = arg;
+    }
+
+    if (unsigned_value == 0) {
+      *ptr = '0';  // 直接写入'0'
+    } else {
+      // 从后向前填充数字
+      while (unsigned_value > 0 && ptr >= buffer) {
+        auto digit = unsigned_value % (is_hex ? 16 : 10);
+        *ptr-- = (digit < 10) ? ('0' + digit)
+                              : ('a' + (digit - 10));  // 十六进制小写
+        unsigned_value /= (is_hex ? 16 : 10);
+      }
+
+      // 添加负号（如果有空间）
+      if (neg && ptr >= buffer) {
+        *ptr-- = '-';
+      }
+    }
+
+    // 确定有效字符串的起始位置并输出
+    char *start = ptr + 1;
+    puts(start);
+
   } else if constexpr (std::is_same_v<T, const char *> ||
                        std::is_same_v<T, char *>) {
-    puts(arg);
+    // 安全复制字符串到缓冲区
+    if (size == 0) {
+      return;
+    }
+    if (!arg) {
+      buffer[0] = '\0';
+      return;
+    }
+
+    uint32_t i = 0;
+    while (i < size - 1 && arg[i] != '\0') {
+      buffer[i] = arg[i];
+      i++;
+    }
+    buffer[i] = '\0';  // 确保终止
+    puts(buffer);      // 无换行输出
+
+  } else {
+    static_assert(std::is_integral_v<T> || std::is_same_v<T, const char *> ||
+                      std::is_same_v<T, char *>,
+                  "unsupported type for format_arg");
   }
 }
 
 template <typename... Args>
 void print_format(const char *fmt, Args... args);
 
-auto print_format(const char *fmt) -> void { puts(fmt); }
+auto print_format(const char *fmt) -> void;
 
 template <typename First, typename... Next>
 auto print_format(const char *fmt, First first, Next... next) -> void {
   while (fmt != nullptr && *fmt != '\0') {
-    if (*fmt == '{' && (fmt + 1) != nullptr && *(fmt + 1) == '}') {
+    if (*fmt == '{' && (fmt + 1) != nullptr &&
+        (*(fmt + 1) == '}' ||
+         ((fmt + 2) != nullptr && *(fmt + 1) == 'x' && *(fmt + 2) == '}'))) {
       char buffer[32];
-      format_arg(buffer, sizeof(buffer), first);
-      fmt += 2;
+      bool is_hex = (*(fmt + 1) == 'x');
+      format_arg(buffer, sizeof(buffer), first, is_hex);
+      if (is_hex) {
+        fmt += 3;
+      } else {
+        fmt += 2;
+      }
       print_format(fmt, next...);
     } else {
-      uart::putc(*fmt);
+      console::putc(*fmt);
       ++fmt;
     }
   }
@@ -65,14 +115,9 @@ auto print(const char *fmt, Args... args) -> void {
   print_format(fmt, args...);
 }
 
-auto print(const char *str) -> void { puts(str); }
+auto print(const char *str) -> void;
 
-auto panic(const char *str) -> void {
-  puts("panic: ");
-  puts(str);
-  while (true) {
-  };
-}
+auto panic(const char *str) -> void;
 
 enum log_level : uint8_t {
   INFO,
@@ -81,21 +126,5 @@ enum log_level : uint8_t {
   ERROR,
 };
 
-auto print_log(log_level level, const char* msg) -> void {
-  switch (level) {
-    case log_level::INFO:
-      puts("[INFO]: ");
-      break;
-    case log_level::DEBUG:
-      puts("[DEBUG]: ");
-      break;
-    case log_level::WARNNING:
-      puts("[WARNNING]: ");
-      break;
-    case log_level::ERROR:
-      puts("[ERROR]: ");
-      break;
-  }
-  puts(msg);
-};
+auto print_log(log_level level, const char *msg) -> void;
 }  // namespace fmt
