@@ -1,0 +1,66 @@
+// -*- C++ -*-
+
+#pragma once
+
+#include <cstdint>
+
+namespace fs {
+// Disk layout:
+// [ boot block | super block | log | inode blocks |
+//                                          free bit map | data blocks]
+//
+// mkfs computes the super block and builds an initial file system. The
+// super block describes the disk layout:
+struct superblock {
+  uint32_t magic;       // Must be FSMAGIC
+  uint32_t size;        // Size of file system image (blocks)
+  uint32_t nblocks;     // Number of data blocks
+  uint32_t ninodes;     // Number of inodes.
+  uint32_t nlog;        // Number of log blocks
+  uint32_t logstart;    // Block number of first log block
+  uint32_t inodestart;  // Block number of first inode block
+  uint32_t bmapstart;   // Block number of first free map block
+};
+
+constexpr uint64_t BSIZE{1024};
+constexpr uint32_t MAXOPBLOCKS{10};
+constexpr uint32_t NBUF{MAXOPBLOCKS * 3};
+constexpr uint32_t LOGSIZE{MAXOPBLOCKS * 3};
+
+constexpr uint32_t FSMAGIC {0x10203040};
+
+constexpr uint32_t NINODE {50};
+constexpr uint32_t NDIRECT {12};
+constexpr uint32_t NINDIRECT {BSIZE / sizeof(unsigned int)};
+constexpr uint32_t MAXFILE {NDIRECT + NINDIRECT};
+
+// On-disk inode structure
+struct dinode {
+  short type;           // File type
+  short major;          // Major device number (T_DEVICE only)
+  short minor;          // Minor device number (T_DEVICE only)
+  short nlink;          // Number of links to inode in file system
+  unsigned int size;            // Size of file (bytes)
+  unsigned int addrs[NDIRECT+1];   // Data block addresses
+};
+
+// Inodes per block.
+#define IPB           (BSIZE / sizeof(struct dinode))
+
+// Block containing inode i
+#define IBLOCK(i, sb)     ((i) / IPB + sb.inodestart)
+
+// Bitmap bits per block
+constexpr uint32_t BPB {BSIZE*8};
+
+// Block of free map containing bit for block b
+#define BBLOCK(b, sb) ((b)/BPB + sb.bmapstart)
+
+// Directory is a file containing a sequence of dirent structures.
+constexpr uint32_t DIRSIZ {14};
+
+struct dirent {
+  unsigned short inum;
+  char name[DIRSIZ];
+};
+}  // namespace fs

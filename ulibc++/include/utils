@@ -1,0 +1,24 @@
+// -*- C++ -*-
+#pragma once
+namespace std {
+template <typename T>
+struct remove_reference {
+  using type = T;
+};
+
+template <typename T>
+struct remove_reference<T&> {
+  using type = T;
+};
+
+template <typename T>
+struct remove_reference<T&&> {
+  using type = T;
+};
+
+template <typename T>
+auto move(T&& t) noexcept -> remove_reference<T>&& {
+  return static_cast<remove_reference<T>&&>(t);
+}
+
+}  // namespace std
