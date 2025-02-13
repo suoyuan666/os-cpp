@@ -85,7 +85,6 @@ auto iinit() -> void {
 }
 
 auto iget(uint32_t dev, uint32_t inum) -> struct file::inode *;
-auto itrunc(struct file::inode *ip) -> void;
 
 auto ialloc(uint32_t dev, int16_t type) -> struct file::inode * {
   for (uint32_t inum = 1; inum < sb.ninodes; ++inum) {

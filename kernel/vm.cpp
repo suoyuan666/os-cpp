@@ -381,4 +381,40 @@ auto copyin(uint64_t *pagetable, char *dst, uint64_t srcva, uint64_t len)
 
   return true;
 }
+
+auto copyinstr(uint64_t *pagetable, char *dst, uint64_t srcva, uint64_t len)
+    -> bool {
+  auto fetch_null{false};
+
+  while (fetch_null == false && len > 0) {
+    auto va0 = PG_ROUND_DOWN(srcva);
+    auto pa0 = walkaddr(pagetable, va0);
+    if (pa0 == 0) {
+      return false;
+    }
+
+    auto n = PGSIZE - (srcva - va0);
+    if (n > len) {
+      return false;
+    }
+
+    auto *p = (char *)(pa0 + (srcva - va0));
+    while (n > 0) {
+      if (*p == '\0') {
+        *dst = '\0';
+        fetch_null = true;
+        break;
+      } else {
+        *dst = *p;
+      }
+      --n;
+      --len;
+      ++p;
+      ++dst;
+    }
+
+    srcva = va0 + PGSIZE;
+  }
+
+  return fetch_null;
 }  // namespace vm

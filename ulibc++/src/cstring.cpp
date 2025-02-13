@@ -63,4 +63,16 @@ auto strncmp(const char* lhs, const char* rhs, uint32_t count) -> int {
   }
   return static_cast<unsigned char>(*lhs) - static_cast<unsigned char>(*rhs);
 }
+
+auto strlen( const char* str ) -> uint32_t {
+  if (str == nullptr) {
+        return 0;
+    }
+
+    const char* s = str;
+    while (*s != '\0') {
+        ++s;
+    }
+    return s - str;
+}
 }  // namespace std
