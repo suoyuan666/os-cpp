@@ -70,8 +70,10 @@ auto map_stack(uint64_t *kpt) -> void {
 
 auto alloc_pid() -> uint32_t {
   lock::spin_acquire(&pid_lock);
-  return next_pid++;
+  auto pid = next_pid;
+  next_pid++;
   lock::spin_release(&pid_lock);
+  return pid;
 }
 
 auto alloc_pagetable(struct process &p) -> uint64_t * {
@@ -208,13 +210,15 @@ auto yield() -> void {
 }
 
 extern "C" auto forkret() -> void {
-  static int first{1};
+  static bool first{true};
 
   lock::spin_release(&curr_proc()->lock);
 
-  if (first == 1) {
+  if (first) {
     fs::init(1);
-    first = 0;
+    fmt::print_log(fmt::log_level::INFO,
+                   "the root file system init successful");
+    first = false;
     __sync_synchronize();
   }
 
@@ -246,6 +250,8 @@ auto sleep(void *chan, struct lock::spinlock &lock) -> void {
 
   p->chan = chan;
   p->status = proc_status::SLEEPING;
+
+  sched();
 
   p->chan = nullptr;
   lock::spin_release(&p->lock);
