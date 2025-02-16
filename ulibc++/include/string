@@ -1,0 +1,92 @@
+// -*- C++ -*-
+#pragma once
+#include <__ios_base.h>
+
+#include <cstddef>
+
+namespace std {
+template <class CharT>
+class char_traits {
+  using char_type = CharT;
+  using int_type = int;
+  using pos_type = std::streamoff;
+  using off_type = std::streamoff;
+
+  static constexpr auto eof() -> int_type { return static_cast<char>(-1); }
+
+  static auto to_int_type(char_type ch) -> int_type {
+    return static_cast<int_type>(ch);
+  }
+
+  static auto to_char_type(int_type i) -> char_type {
+    return static_cast<char_type>(i);
+  }
+
+  static auto eq_int_type(int_type a, int_type b) -> bool { return a == b; }
+
+  static auto eq(char_type c1, char_type c2) -> bool { return c1 == c2; }
+
+  static constexpr auto to_char_type(char_type* ptr) -> char_type* {
+    return ptr;
+  }
+};
+
+template <>
+class char_traits<char> {
+ public:
+  using char_type = char;
+  using int_type = int;
+  using pos_type = std::streamoff;
+  using off_type = std::streamoff;
+
+  static auto compare(const char* s1, const char* s2, size_t n) -> int {
+    for (size_t i = 0; i < n; ++i) {
+      if (s1[i] != s2[i]) {
+        return s1[i] < s2[i] ? -1 : 1;
+      }
+    }
+    return 0;
+  }
+
+  static auto copy(char* dest, const char* src, size_t n) -> char* {
+    for (size_t i = 0; i < n; ++i) {
+      dest[i] = src[i];
+    }
+    return dest;
+  }
+
+  static auto assign(char* dest, size_t n, char c) -> char* {
+    for (size_t i = 0; i < n; ++i) {
+      dest[i] = c;
+    }
+    return dest;
+  }
+
+  static auto move(char* dest, const char* src, size_t n) -> char* {
+    if (src < dest) {
+      for (size_t i = n; i > 0; --i) {
+        dest[i - 1] = src[i - 1];
+      }
+    } else {
+      for (size_t i = 0; i < n; ++i) {
+        dest[i] = src[i];
+      }
+    }
+    return dest;
+  }
+
+  static auto to_int_type(char_type ch) -> int_type {
+    return static_cast<int_type>(ch);
+  }
+
+  static auto to_char_type(int_type i) -> char_type {
+    return static_cast<char_type>(i);
+  }
+
+  static auto eq(char c1, char c2) -> bool { return c1 == c2; }
+
+  static auto lt(char c1, char c2) -> bool { return c1 < c2; }
+
+  static constexpr auto eof() -> int_type { return static_cast<char>(-1); };
+};
+}  // namespace std

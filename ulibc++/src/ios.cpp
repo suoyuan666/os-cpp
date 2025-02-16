@@ -1,3 +1,2 @@
-class ios {
-
-};
+namespace std {
+}  // namespace std

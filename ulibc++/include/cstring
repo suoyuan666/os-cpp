@@ -3,7 +3,7 @@
 #include <cstdint>
 
 namespace std {
-auto memset(void* dest, int ch, uint32_t count) noexcept -> void*;
+extern "C" auto memset(void* dest, int ch, uint32_t count) noexcept -> void*;
 auto memmove(void* dest, const void* src, uint32_t count) noexcept -> void*;
 extern "C" auto memcpy(void* dest, const void* src, uint32_t count) -> void*;
 auto strncpy(char* __restrict__ dest, const char* __restrict__ src,

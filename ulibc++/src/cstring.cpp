@@ -2,7 +2,7 @@
 #include <cstring>
 
 namespace std {
-auto memset(void* dest, int ch, uint32_t count) noexcept -> void* {
+extern "C" auto memset(void* dest, int ch, uint32_t count) noexcept -> void* {
   auto* cdst = static_cast<char*>(dest);
   for (uint32_t i = 0; i < count; ++i) {
     cdst[i] = ch;
@@ -53,7 +53,7 @@ auto strncpy(char* __restrict__ dest, const char* __restrict__ src,
 }
 
 auto strncmp(const char* lhs, const char* rhs, uint32_t count) -> int {
-  while (count > 0 && *lhs != '\0' && *lhs != *rhs) {
+  while (count > 0 && *lhs != '\0' && *lhs == *rhs) {
     --count;
     ++lhs;
     ++rhs;
