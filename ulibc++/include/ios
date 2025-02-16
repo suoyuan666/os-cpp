@@ -1,0 +1,51 @@
+// -*- C++ -*-
+
+#include "__ios_base.h"
+#include <streambuf>
+
+namespace std {
+template <class CharT, class Traits = std::char_traits<CharT>>
+class basic_ios : public ios_base {
+ public:
+  using char_type = CharT;
+  using traits_type = Traits;
+
+  basic_ios() = default;
+  ~basic_ios() override = default;
+
+  auto rdbuf() const -> std::basic_streambuf<CharT, Traits>* { return rdbuf_; }
+
+  void rdbuf(std::basic_streambuf<CharT, Traits>* buf) { rdbuf_ = buf; }
+
+  void write(const CharT* str, size_t n) {
+    if (rdbuf_ && good()) {
+      for (size_t i = 0; i < n; ++i) {
+        if (rdbuf_->sputc(str[i]) == Traits::eof()) {
+          setstate(iostate::failbit);
+          break;
+        }
+      }
+    }
+  }
+
+  auto read(CharT* str, size_t n) -> size_t {
+    if (rdbuf_ && good()) {
+      size_t i = 0;
+      while (i < n) {
+        str[i] = rdbuf_->sbumpc();
+        if (traits_type::eq_int_type(str[i], traits_type::eof())) {
+          setstate(iostate::eofbit);
+          break;
+        }
+        ++i;
+      }
+      return i;
+    }
+    return 0;
+  }
+
+ protected:
+  std::basic_streambuf<CharT, Traits>* rdbuf_ = nullptr;
+};
+
+}  // namespace std

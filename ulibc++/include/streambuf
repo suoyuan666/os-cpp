@@ -1,0 +1,103 @@
+// -*- C++ -*-
+#pragma once
+#include <cstddef>
+#include <string>
+
+
+namespace std {
+template <class CharT, class Traits = char_traits<CharT>>
+class basic_streambuf {
+ public:
+  using char_type = CharT;
+  using traits_type = Traits;
+  using int_type = typename traits_type::int_type;
+  using pos_type = typename traits_type::pos_type;
+  using off_type = typename traits_type::off_type;
+
+  basic_streambuf() : buffer_(nullptr), buffer_end_(nullptr) {}
+
+  void set_buffer(char_type* buf, size_t size) {
+    buffer_ = buf;
+    buffer_size_ = size;
+    buffer_pos_ = 0;
+    buffer_end_ = buffer_ + buffer_size_;
+  }
+
+  auto pptr() -> char_type* { return buffer_ + buffer_pos_; }
+
+  auto pbase() const -> const char_type* { return buffer_; }
+
+  void pbump(int n) {
+    if (n < 0 && buffer_pos_ < static_cast<size_t>(-n)) {
+      // 如果 n 为负且 n 的绝对值大于当前 buffer_pos_，不能向后调整指针
+      buffer_pos_ = 0;  // 直接设置为 0
+    } else if (n < 0) {
+      // 向后移动缓冲区位置
+      buffer_pos_ -= static_cast<size_t>(-n);
+    } else {
+      // 向前移动缓冲区位置
+      buffer_pos_ += static_cast<size_t>(n);
+      if (buffer_pos_ > buffer_size_) {
+        buffer_pos_ = buffer_size_;  // 不超过缓冲区末尾
+      }
+    }
+  }
+
+  auto sputc(char_type ch) -> int_type {
+    if (buffer_ == nullptr || buffer_pos_ >= buffer_size_) {
+      return traits_type::eof();
+    }
+    buffer_[buffer_pos_++] = ch;
+    return traits_type::to_int_type(ch);
+  }
+
+  virtual auto overflow(int_type ch) -> int_type {
+    if (ch != traits_type::eof()) {
+      sputc(traits_type::to_char_type(ch));  // 将字符加入缓冲区
+    }
+    return ch;
+  }
+
+  auto seekpos(pos_type pos) -> pos_type {
+    if (pos < 0 || pos >= static_cast<off_type>(buffer_size_)) {
+      return traits_type::eof();
+    }
+    buffer_pos_ = static_cast<size_t>(pos);
+    return pos;
+  }
+
+  auto seekoff(off_type off, std::ios_base::seekdir dir) -> off_type {
+    if (buffer_ == nullptr) {
+      return traits_type::eof();
+    }
+    switch (dir) {
+      case std::ios_base::beg:
+        buffer_pos_ = static_cast<size_t>(off);
+        break;
+      case std::ios_base::cur:
+        buffer_pos_ += static_cast<size_t>(off);
+        break;
+      case std::ios_base::end:
+        buffer_pos_ = buffer_size_ - static_cast<size_t>(off);
+        break;
+      default:
+        return traits_type::eof();
+    }
+    if (buffer_pos_ < 0 || buffer_pos_ > buffer_size_) {
+      return traits_type::eof();
+    }
+    return static_cast<off_type>(buffer_pos_);
+  }
+
+  void reset() { buffer_pos_ = 0; }
+
+ protected:
+  char_type* buffer_;
+  size_t buffer_size_{};
+  size_t buffer_pos_{};
+  char_type* buffer_end_;
+};
+
+using streambuf = basic_streambuf<char>;
+using wstreambuf = basic_streambuf<wchar_t>;
+}  // namespace std

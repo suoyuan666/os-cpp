@@ -1,5 +1,5 @@
 // -*- C++ -*-
-
+#pragma once
 #include <istream>
 #include <ostream>
 

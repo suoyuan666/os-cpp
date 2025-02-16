@@ -11,15 +11,19 @@ struct file {
   int ref;
   bool readable;
   bool writable;
-  struct pipe *pipe;
-  struct inode *ip;
+  struct pipe* pipe;
+  struct inode* ip;
   uint32_t off;
   int16_t major;
 };
 
-static inline auto major(uint32_t dev) -> uint32_t { return (dev) >> 16U & 0xFFFFU; }
+static inline auto major(uint32_t dev) -> uint32_t {
+  return (dev) >> 16U & 0xFFFFU;
+}
 static inline auto minor(uint32_t dev) -> uint32_t { return dev & 0xFFFFU; }
-static inline auto mkdev(uint32_t m, uint32_t n) -> uint32_t { return m << 16U | n; }
+static inline auto mkdev(uint32_t m, uint32_t n) -> uint32_t {
+  return m << 16U | n;
+}
 
 struct inode {
   uint32_t dev;
@@ -60,6 +64,14 @@ struct stat {
 constexpr uint32_t NOFILE{16};
 constexpr uint32_t NFILE{100};
 constexpr uint32_t NDEV{10};
+
+constexpr uint32_t MAXPATH{128};
+
+constexpr uint32_t O_RDONLY{0x000};
+constexpr uint32_t O_WRONLY{0x001};
+constexpr uint32_t O_RDWR{0x002};
+constexpr uint32_t O_CREATE{0x200};
+constexpr uint32_t O_TRUNC{0x400};
 
 auto init() -> void;
 auto alloc() -> struct file*;

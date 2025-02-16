@@ -8,7 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 project(xv6-riscv-cpp
     VERSION 0.01
-    LANGUAGES CXX ASM
+    LANGUAGES C CXX ASM
 )
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -17,7 +17,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_CXX_FLAGS_DEBUG "-g3 -Wall -Wextra -Werror")
+    set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3 -Wall -Wextra -Werror")
+    set(CMAKE_C_FLAGS_DEBUG "-O0 -g3 -Wall -Wextra -Werror")
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -30,14 +31,19 @@ if(EXISTS "${PATH_TO_CMAKELISTS_TXT}")
     Some junk files were created in this folder (CMakeCache.txt, CMakeFiles); you should delete those.")
 endif()
 
+add_subdirectory(mkfs)
 add_subdirectory(ulibc++)
+add_subdirectory(ulibc)
 add_subdirectory(kernel)
+add_subdirectory(utils)
 
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "CMAKE_CXX_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG}")
+    message(STATUS "CMAKE_C_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG}")
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
     message(STATUS "CMAKE_CXX_FLAGS_RELEASE: ${CMAKE_CXX_FLAGS_RELEASE}")
+    message(STATUS "CMAKE_C_FLAGS_RELEASE: ${CMAKE_CXX_FLAGS_RELEASE}")
 endif()
 message(STATUS "CMAKE_EXE_LINKER_FLAGS: ${CMAKE_EXE_LINKER_FLAGS}")
 message(STATUS "CMAKE_SHARED_LINKER_FLAGS: ${CMAKE_SHARED_LINKER_FLAGS}")

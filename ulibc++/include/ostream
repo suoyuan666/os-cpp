@@ -1,7 +1,45 @@
 // -*- C++ -*-
 
+#include <cstring>
+#include <ios>
+
 namespace std {
-class ostream {
-    
+template <class CharT, class Traits = std::char_traits<CharT>>
+class basic_ostream : virtual public basic_ios<CharT, Traits> {
+ public:
+  using char_type = CharT;
+  using traits_type = Traits;
+  using int_type = typename traits_type::int_type;
+  using pos_type = typename traits_type::pos_type;
+  using off_type = typename traits_type::off_type;
+  using basic_streambuf_type = basic_streambuf<char_type, traits_type>;
+
+  explicit basic_ostream(basic_streambuf_type* buf)
+      : basic_ios<CharT, Traits>(), buf_(buf) {}
+
+  auto put(char_type ch) -> basic_ostream& {
+    if (buf_) {
+      buf_->sputc(ch);
+    }
+    return *this;
+  }
+
+  auto write(const char_type* s, std::streamsize n) -> basic_ostream& {
+    for (std::streamsize i = 0; i < n; ++i) {
+      put(s[i]);
+    }
+    return *this;
+  }
+
+  template <typename T>
+  auto operator<<(const T& value) -> basic_ostream& {
+    this->write(value, strlen(value));
+    return *this;
+  }
+
+ private:
+  basic_streambuf_type* buf_;
 };
+
+using ostream = basic_ostream<char>;
 }  // namespace std

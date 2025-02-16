@@ -23,6 +23,8 @@ set (
     virtio_disk.cpp
     log.cpp
     lock.cpp
+    loader.cpp
+    sysfile.cpp
 )
 
 set (
@@ -43,7 +45,7 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-builtin-strncpy -fno-builtin-strnc
 
 add_executable(${KERNEL_NAME} ${KERNEL_SRC})
 
-target_link_options(${KERNEL_NAME} PRIVATE "-Wl,-z max-page-size=4096,-T${CMAKE_SOURCE_DIR}/kernel/kernel.ld")
+target_link_options(${KERNEL_NAME} PRIVATE "-Wl,-T${CMAKE_SOURCE_DIR}/kernel/kernel.ld")
 
 target_include_directories(${KERNEL_NAME} PRIVATE ${KERNEL_INCLUDE})
 target_link_libraries(${KERNEL_NAME} PRIVATE ulibcxx)

@@ -33,21 +33,27 @@ namespace vm {
 constexpr uint64_t UART0{0x10000000ULL};
 constexpr uint64_t UART_IRQ{10ULL};
 
-constexpr uint64_t VIRTIO0{0x10001000ULL};
-constexpr uint64_t VIRTIO_IRQ{1ULL};
+constexpr uint64_t VIRTIO0{0x10001000U};
+constexpr uint64_t VIRTIO_IRQ{1U};
 
 constexpr uint64_t PLIC{0x0c000000ULL};
 constexpr uint64_t PLIC_PRIORITY{PLIC + 0x0};
 constexpr uint64_t PLIC_PENDING{PLIC + 0x1000};
-static inline auto PLIC_SENABLE(uint64_t hart) -> uint64_t {
-  return PLIC + 0x2080 + (hart) * 0x100;
-};
-static inline auto PLIC_SPRIORITY(uint64_t hart) -> uint64_t {
-  return PLIC + 0x201000 + (hart) * 0x2000;
-};
-static inline auto PLIC_SCLAIM(uint64_t hart) -> uint64_t {
-  return PLIC + 0x201004 + (hart) * 0x2000;
-};
+
+#define PLIC_SENABLE(hart) (vm::PLIC + 0x2080 + (hart)*0x100)
+#define PLIC_SPRIORITY(hart) (vm::PLIC + 0x201000 + (hart)*0x2000)
+#define PLIC_SCLAIM(hart) (vm::PLIC + 0x201004 + (hart)*0x2000)
+
+//
+// static inline auto PLIC_SENABLE(uint64_t hart) -> uint64_t {
+//   return PLIC + 0x2080 + (hart) * 0x100;
+// };
+// static inline auto PLIC_SPRIORITY(uint64_t hart) -> uint64_t {
+//   return PLIC + 0x201000 + (hart) * 0x2000;
+// };
+// static inline auto PLIC_SCLAIM(uint64_t hart) -> uint64_t {
+//   return PLIC + 0x201004 + (hart) * 0x2000;
+// };
 
 constexpr uint64_t KERNEL_BASE{0x80000000ULL};
 constexpr uint64_t PHY_END{KERNEL_BASE + 128ULL * 1024ULL * 1024ULL};
@@ -69,19 +75,23 @@ auto init() -> void;
 auto map_pages(uint64_t *pagetable, uint64_t va, uint64_t pa, uint64_t size,
                uint32_t flag) -> bool;
 auto inithart() -> void;
-auto uvm_alloc() -> uint64_t *;
+auto uvm_create() -> uint64_t *;
+auto walkaddr(uint64_t *pagetable, uint64_t va) -> uint64_t;
 auto uvm_first(uint64_t *pagetable, unsigned char *src, uint32_t size) -> void;
 auto uvm_unmap(uint64_t *pagetable, uint64_t va, uint64_t npages, bool do_free)
     -> void;
 auto uvm_free(uint64_t *pagetable, uint64_t sz) -> void;
+auto uvm_clear(uint64_t *pagetable, uint64_t va) -> void;
 auto uvm_dealloc(uint64_t *pagetable, uint64_t oldsz, uint64_t newsz)
     -> uint64_t;
-auto uvm_alloc(uint64_t *pagetable, uint64_t oldsz, uint64_t newsz, int xperm)
+auto uvm_alloc(uint64_t *pagetable, uint64_t oldsz, const uint64_t newsz, uint32_t xperm)
     -> uint64_t;
 auto copyin(uint64_t *pagetable, char *dst, uint64_t srcva, uint64_t len)
     -> bool;
 auto copyout(uint64_t *pagetable, uint64_t dstva, char *src, uint64_t len)
     -> bool;
 auto uvm_copy(uint64_t *old_pagetable, uint64_t *new_pagetable, uint64_t sz)
+    -> bool;
+auto copyinstr(uint64_t *pagetable, char *dst, uint64_t srcva, uint64_t len)
     -> bool;
 }  // namespace vm
