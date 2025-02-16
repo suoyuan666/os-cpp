@@ -3,6 +3,7 @@
 
 #include "arch/riscv"
 #include "file"
+#include "fmt"
 #include "fs"
 #include "kernel/fs"
 #include "loader"
@@ -127,12 +128,20 @@ auto create(char *path, int type, int16_t major, int16_t minor)
   if (type == file::T_DIR) {
     if (fs::dir_link(ip, (char *)".", ip->inum) < 0 ||
         fs::dir_link(ip, (char *)"..", ip->inum) < 0) {
-      goto fail;
+      ip->nlink = 0;
+      fs::iupdate(ip);
+      fs::iunlockput(ip);
+      fs::iunlockput(dp);
+      return nullptr;
     }
   }
 
   if (fs::dir_link(dp, name, ip->inum) < 0) {
-    goto fail;
+    ip->nlink = 0;
+    fs::iupdate(ip);
+    fs::iunlockput(ip);
+    fs::iunlockput(dp);
+    return nullptr;
   }
 
   if (type == file::T_DIR) {
@@ -143,13 +152,12 @@ auto create(char *path, int type, int16_t major, int16_t minor)
   fs::iunlockput(dp);
 
   return ip;
+}
 
-fail:
-  ip->nlink = 0;
-  fs::iupdate(ip);
-  fs::iunlockput(ip);
-  fs::iunlockput(dp);
-  return nullptr;
+auto fail_work4exec(char *argv[loader::MAXARGV], uint32_t size) -> void {
+  for (uint32_t i = 0; i < size && argv[i] != nullptr; ++i) {
+    vm::kfree(argv[i]);
+  }
 }
 
 auto sys_exec() -> uint64_t {
@@ -161,16 +169,18 @@ auto sys_exec() -> uint64_t {
   if (fetch_str(path_addr, path, file::MAXPATH) == false) {
     return -1;
   }
-  std::memmove(argv, 0, sizeof(argv));
+  std::memset(argv, 0, sizeof(argv));
 
   uint32_t i{0};
   uint64_t uarg = 0;
   while (true) {
     if (i > sizeof(argv) / sizeof(char *)) {
-      goto bad;
+      fail_work4exec(argv, sizeof(argv) / sizeof(char *));
+      return -1;
     }
-    if (fetch_addr(uargv + sizeof(uint64_t) * i, &uargv) == false) {
-      goto bad;
+    if (fetch_addr(uargv + sizeof(uint64_t) * i, (uint64_t*)&uarg) == false) {
+      fail_work4exec(argv, sizeof(argv) / sizeof(char *));
+      return -1;
     }
     if (uarg == 0) {
       argv[i] = nullptr;
@@ -179,25 +189,26 @@ auto sys_exec() -> uint64_t {
 
     argv[i] = (char *)vm::kalloc().value();
     if (argv[i] == nullptr) {
-      goto bad;
+      fail_work4exec(argv, sizeof(argv) / sizeof(char *));
+      return -1;
     }
 
     if (fetch_str(uarg, argv[i], PGSIZE) == false) {
-      goto bad;
+      fail_work4exec(argv, sizeof(argv) / sizeof(char *));
+      return -1;
     }
+
+    ++i;
   }
 
   auto rs = loader::exec(path, argv);
+  if (rs == -1) {
+    fmt::panic("sys_exec: exec call failed");
+  }
   for (i = 0; i < sizeof(argv) / sizeof(char *) && argv[i] != nullptr; ++i) {
     vm::kfree(argv[i]);
   }
   return rs;
-
-bad:
-  for (i = 0; i < sizeof(argv) / sizeof(char *) && argv[i] != nullptr; ++i) {
-    vm::kfree(argv[i]);
-  }
-  return -1;
 }
 
 auto sys_fork() -> uint64_t { return proc::fork(); }
@@ -298,7 +309,7 @@ auto sys_chdir() -> uint64_t {
   return 0;
 }
 
-auto sys_dup() -> uint64_t {}
+auto sys_dup() -> uint64_t { return 0; }
 auto sys_getpid() -> uint64_t { return proc::curr_proc()->pid; }
 auto sys_sbrk() -> uint64_t {
   int n = static_cast<int>(get_argu(0));
@@ -310,8 +321,8 @@ auto sys_sbrk() -> uint64_t {
 
   return sz;
 }
-auto sys_sleep() -> uint64_t {}
-auto sys_uptime() -> uint64_t {}
+auto sys_sleep() -> uint64_t { return 0; }
+auto sys_uptime() -> uint64_t { return 0; }
 auto sys_open() -> uint64_t {
   char path[file::MAXPATH]{};
   int mode = static_cast<int>(get_argu(1));
@@ -396,9 +407,9 @@ auto sys_write() -> uint64_t {
 
   return file::write(f, addr, size);
 }
-auto sys_mknod() -> uint64_t {}
-auto sys_unlink() -> uint64_t {}
-auto sys_link() -> uint64_t {}
+auto sys_mknod() -> uint64_t { return 0; }
+auto sys_unlink() -> uint64_t { return 0; }
+auto sys_link() -> uint64_t { return 0; }
 auto sys_mkdir() -> uint64_t {
   char path[file::MAXPATH];
   struct file::inode *ip;
@@ -410,7 +421,7 @@ auto sys_mkdir() -> uint64_t {
     log::end_op();
     return -1;
   }
-  if((ip = create(path, T_DIR, 0, 0)) == 0){
+  if ((ip = create(path, file::T_DIR, 0, 0)) == 0) {
     log::end_op();
     return -1;
   }

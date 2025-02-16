@@ -28,7 +28,7 @@ struct {
 auto kvm_make() -> std::optional<uint64_t *>;
 
 auto kinit() -> void {
-  lock::spin_init(kmem.lock, (char *)"kevm");
+  lock::spin_init(kmem.lock, (char *)"kmem");
   for (auto *p_start = (char *)PG_ROUND_UP((uint64_t)end);
        p_start + PGSIZE <= (char *)PHY_END; p_start += PGSIZE) {
     kfree(p_start);
@@ -36,6 +36,7 @@ auto kinit() -> void {
 }
 
 auto kfree(void *addr) -> void {
+  std::memset(addr, 1, PGSIZE);
   auto *tmp = static_cast<struct list *>(addr);
   lock::spin_acquire(&kmem.lock);
   tmp->next = kmem.freelist;
@@ -48,6 +49,7 @@ auto kalloc() -> std::optional<uint64_t *> {
   auto *tmp = kmem.freelist;
   if (tmp) {
     kmem.freelist = tmp->next;
+    std::memset((char *)tmp, 5, PGSIZE);  // fill with junk
     auto rs_val = (uint64_t *)(tmp);
     lock::spin_release(&kmem.lock);
     return {rs_val};
@@ -194,7 +196,7 @@ auto inithart() -> void {
   sfence_vma();
 }
 
-auto uvm_alloc() -> uint64_t * {
+auto uvm_create() -> uint64_t * {
   uint64_t *rs = kalloc().value();
   std::memset(rs, 0, PGSIZE);
   return rs;
@@ -244,7 +246,7 @@ auto uvm_free(uint64_t *pagetable, uint64_t sz) -> void {
   free_walk(pagetable);
 }
 
-auto uvm_alloc(uint64_t *pagetable, uint64_t oldsz, uint64_t newsz, int xperm)
+auto uvm_alloc(uint64_t *pagetable, uint64_t oldsz, const uint64_t newsz, uint32_t xperm)
     -> uint64_t {
   if (oldsz > newsz) {
     return oldsz;
@@ -359,15 +361,19 @@ auto copyout(uint64_t *pagetable, uint64_t dstva, char *src, uint64_t len)
 
 auto copyin(uint64_t *pagetable, char *dst, uint64_t srcva, uint64_t len)
     -> bool {
+  uint64_t va0 = 0;
+  uint64_t pa0 = 0;
+  uint64_t n = 0;
+
   while (len > 0) {
-    auto va0 = PG_ROUND_DOWN(srcva);
-    auto pa0 = walkaddr(pagetable, va0);
+    va0 = PG_ROUND_DOWN(srcva);
+    pa0 = walkaddr(pagetable, va0);
 
     if (pa0 == 0) {
       return false;
     }
 
-    auto n = PGSIZE - (srcva - va0);
+    n = PGSIZE - (srcva - va0);
     if (n > len) {
       n = len;
     }
@@ -395,7 +401,7 @@ auto copyinstr(uint64_t *pagetable, char *dst, uint64_t srcva, uint64_t len)
 
     auto n = PGSIZE - (srcva - va0);
     if (n > len) {
-      return false;
+      n = len;
     }
 
     auto *p = (char *)(pa0 + (srcva - va0));
@@ -417,4 +423,5 @@ auto copyinstr(uint64_t *pagetable, char *dst, uint64_t srcva, uint64_t len)
   }
 
   return fetch_null;
+}
 }  // namespace vm

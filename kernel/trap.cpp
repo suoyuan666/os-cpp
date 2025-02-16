@@ -19,7 +19,6 @@ extern "C" auto kernelvec() -> void;
 extern "C" char trampoline[], uservec[], userret[];
 
 namespace trap {
-using proc::get_killed;
 
 struct lock::spinlock tickslock;
 uint32_t ticks;
@@ -32,7 +31,7 @@ auto inithart() -> void { w_stvec((uint64_t)kernelvec); }
 
 auto user_trap() -> void {
   if ((r_sstatus() & SSTATUS_SPP) != 0) {
-    fmt::panic("usertrap: not from user mode");
+    fmt::panic("user_trap: not from user mode");
   }
 
   int which_dev = 0;
@@ -43,7 +42,7 @@ auto user_trap() -> void {
   p->trapframe->epc = r_sepc();
 
   if (r_scause() == 8) {
-    if (get_killed(p)) {
+    if (proc::get_killed(p)) {
       proc::exit(-1);
     }
     p->trapframe->epc += 4;
@@ -81,6 +80,7 @@ auto user_ret() -> void {
   p->trapframe->kernel_satp = r_satp();
   p->trapframe->kernel_sp = p->kernel_stack + PGSIZE;
   p->trapframe->kernel_trap = (uint64_t)user_trap;
+  p->trapframe->kernel_hartid = r_tp();
 
   auto x = r_sstatus();
   x &= ~SSTATUS_SPP;
@@ -133,14 +133,14 @@ void clockintr() {
 }
 
 auto devintr() -> int {
-  uint64_t scause = r_scause();
+  auto scause = r_scause();
 
   if (scause == 0x8000000000000009L) {
     int irq = plic::plic_claim();
 
-    if (irq == vm::UART_IRQ) {
+    if (irq == static_cast<int>(vm::UART_IRQ)) {
       uart::intr();
-    } else if (irq == vm::VIRTIO_IRQ) {
+    } else if (irq == static_cast<int>(vm::VIRTIO_IRQ)) {
       virtio_disk::virtio_disk_intr();
     } else if (irq) {
       fmt::print("unexpected interrupt irq={}\n", irq);

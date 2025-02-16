@@ -60,6 +60,7 @@ extern "C" void start() {
 auto main() -> void {
   if (proc::cpuid() == 0) {
     console::init();
+    fmt::print("\n");
     fmt::print_log(fmt::log_level::INFO, "console init successful\n");
     vm::kinit();
     vm::init();
@@ -82,14 +83,13 @@ auto main() -> void {
     proc::user_init();
     __sync_synchronize();
     started = true;
-
   } else {
     while (started == false);
     __sync_synchronize();
     fmt::print("hart {} starting\n", proc::cpuid());
-    vm::inithart();    // turn on paging
-    trap::inithart();  // install kernel trap vector
-    plic::inithart();  // ask PLIC for device interrupts
+    vm::inithart();
+    trap::inithart();
+    plic::inithart();
   }
 
   proc::scheduler();

@@ -15,6 +15,8 @@ static inline auto R(uint64_t r) -> volatile uint32_t * {
   return (uint32_t *)(vm::VIRTIO0 + r);
 };
 
+// #define R(r) ((volatile uint32_t *)(vm::VIRTIO0 + (r)))
+
 static struct disk {
   struct virtq_desc *desc;
   struct virtq_avail *avail;
@@ -34,14 +36,15 @@ static struct disk {
 } disk;
 
 auto init() -> void {
-  uint32_t status{0};
-
   lock::spin_init(disk.vdisk_lock, (char *)"virtio_disk");
+
   if (*R(VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976 ||
       *R(VIRTIO_MMIO_VERSION) != 2 || *R(VIRTIO_MMIO_DEVICE_ID) != 2 ||
       *R(VIRTIO_MMIO_VENDOR_ID) != 0x554d4551) {
     fmt::panic("could not find virtio disk");
   }
+
+  uint32_t status{0};
   *R(VIRTIO_MMIO_STATUS) = status;
 
   status |= VIRTIO_CONFIG_S_ACKNOWLEDGE;
@@ -95,15 +98,15 @@ auto init() -> void {
   *R(VIRTIO_MMIO_QUEUE_NUM) = NUM;
 
   *R(VIRTIO_MMIO_QUEUE_DESC_LOW) = (uint64_t)disk.desc;
-  *R(VIRTIO_MMIO_QUEUE_DESC_HIGH) = (uint64_t)disk.desc >> 32U;
+  *R(VIRTIO_MMIO_QUEUE_DESC_HIGH) = (uint64_t)disk.desc >> 32;
   *R(VIRTIO_MMIO_DRIVER_DESC_LOW) = (uint64_t)disk.avail;
-  *R(VIRTIO_MMIO_DRIVER_DESC_HIGH) = (uint64_t)disk.avail >> 32U;
+  *R(VIRTIO_MMIO_DRIVER_DESC_HIGH) = (uint64_t)disk.avail >> 32;
   *R(VIRTIO_MMIO_DEVICE_DESC_LOW) = (uint64_t)disk.used;
-  *R(VIRTIO_MMIO_DEVICE_DESC_HIGH) = (uint64_t)disk.used >> 32U;
+  *R(VIRTIO_MMIO_DEVICE_DESC_HIGH) = (uint64_t)disk.used >> 32;
 
   *R(VIRTIO_MMIO_QUEUE_READY) = 0x1;
 
-  for (auto &i : disk.free) {
+  for (char & i : disk.free) {
     i = 1;
   }
 

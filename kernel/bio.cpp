@@ -96,14 +96,14 @@ auto bwrite(struct buf *buf) -> void {
 }
 
 auto bpin(struct buf *buf) -> void {
-  lock::sleep_acquire(buf->lock);
+  lock::spin_acquire(&bcache.lock);
   ++buf->refcnt;
-  lock::sleep_release(buf->lock);
+  lock::spin_release(&bcache.lock);
 }
 
 auto bupin(struct buf *buf) -> void {
-  lock::sleep_acquire(buf->lock);
+  lock::spin_acquire(&bcache.lock);
   --buf->refcnt;
-  lock::sleep_release(buf->lock);
+  lock::spin_release(&bcache.lock);
 }
 }  // namespace bio

@@ -47,4 +47,4 @@ auto syscall() -> void {
     fmt::print("{} {} {} unknown syscall", p->pid, p->name, num);
   }
 }
-}  namespace syscall
+}//  namespace syscall

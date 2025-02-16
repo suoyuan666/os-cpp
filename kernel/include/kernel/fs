@@ -27,40 +27,44 @@ constexpr uint32_t MAXOPBLOCKS{10};
 constexpr uint32_t NBUF{MAXOPBLOCKS * 3};
 constexpr uint32_t LOGSIZE{MAXOPBLOCKS * 3};
 
-constexpr uint32_t FSMAGIC {0x10203040};
+constexpr uint32_t FSMAGIC{0x10203040};
 
-constexpr uint32_t NINODE {50};
-constexpr uint32_t NDIRECT {12};
-constexpr uint32_t NINDIRECT {BSIZE / sizeof(unsigned int)};
-constexpr uint32_t MAXFILE {NDIRECT + NINDIRECT};
+constexpr uint32_t NINODE{50};
+constexpr uint32_t NDIRECT{12};
+constexpr uint32_t NINDIRECT{BSIZE / sizeof(unsigned int)};
+constexpr uint32_t MAXFILE{NDIRECT + NINDIRECT};
 
 // On-disk inode structure
 struct dinode {
-  short type;           // File type
-  short major;          // Major device number (T_DEVICE only)
-  short minor;          // Minor device number (T_DEVICE only)
-  short nlink;          // Number of links to inode in file system
-  unsigned int size;            // Size of file (bytes)
-  unsigned int addrs[NDIRECT+1];   // Data block addresses
+  short type;                       // File type
+  short major;                      // Major device number (T_DEVICE only)
+  short minor;                      // Minor device number (T_DEVICE only)
+  short nlink;                      // Number of links to inode in file system
+  unsigned int size;                // Size of file (bytes)
+  unsigned int addrs[NDIRECT + 1];  // Data block addresses
 };
 
 // Inodes per block.
-#define IPB           (BSIZE / sizeof(struct dinode))
+constexpr uint32_t IPB{BSIZE / sizeof(struct dinode)};
 
 // Block containing inode i
-#define IBLOCK(i, sb)     ((i) / IPB + sb.inodestart)
+#define IBLOCK(i, sb) ((i) / IPB + sb.inodestart)
 
 // Bitmap bits per block
-constexpr uint32_t BPB {BSIZE*8};
+constexpr uint32_t BPB{BSIZE * 8};
 
 // Block of free map containing bit for block b
-#define BBLOCK(b, sb) ((b)/BPB + sb.bmapstart)
+#define BBLOCK(b, sb) ((b) / BPB + sb.bmapstart)
 
 // Directory is a file containing a sequence of dirent structures.
-constexpr uint32_t DIRSIZ {14};
+constexpr uint32_t DIRSIZ{14};
 
 struct dirent {
   unsigned short inum;
   char name[DIRSIZ];
 };
+
+constexpr uint32_t T_DIR{1};
+constexpr uint32_t T_FILE{2};
+constexpr uint32_t T_DEVICE{3};
 }  // namespace fs

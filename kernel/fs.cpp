@@ -14,6 +14,8 @@
 
 namespace fs {
 
+#define min(a, b) ((a) < (b) ? (a) : (b))
+
 struct superblock sb;
 
 auto read_supblock(int dev, struct superblock *supblock) -> void {
@@ -227,6 +229,7 @@ auto bmap(struct file::inode *ip, uint32_t bn) -> uint32_t {
       }
       ip->addrs[bn] = addr;
     }
+    return addr;
   }
 
   bn -= NDIRECT;
@@ -307,8 +310,7 @@ auto readi(struct file::inode *ip, bool user_dst, uint64_t dst, uint32_t offset,
       break;
     }
     auto *bp = bio::bread(ip->dev, addr);
-    m = (n - tot) < (BSIZE - offset % BSIZE) ? (n - tot)
-                                             : (BSIZE - offset % BSIZE);
+    m = min(n - tot, BSIZE - offset % BSIZE);
     if (proc::either_copyout(user_dst, dst, bp->data + (offset % BSIZE), m) ==
         -1) {
       bio::brelse(*bp);
@@ -375,7 +377,7 @@ auto dir_lookup(struct file::inode *dp, char *name, uint32_t *poff)
     if (de.inum == 0) {
       continue;
     }
-    if (namecmp(name, de.name) != 0) {
+    if (namecmp(name, de.name) == 0) {
       if (poff != nullptr) {
         *poff = offset;
       }
