@@ -22,7 +22,7 @@ struct superblock {
   uint32_t bmapstart;   // Block number of first free map block
 };
 
-constexpr uint64_t BSIZE{1024};
+constexpr uint32_t BSIZE{1024};
 constexpr uint32_t MAXOPBLOCKS{10};
 constexpr uint32_t NBUF{MAXOPBLOCKS * 3};
 constexpr uint32_t LOGSIZE{MAXOPBLOCKS * 3};
@@ -67,4 +67,6 @@ struct dirent {
 constexpr uint32_t T_DIR{1};
 constexpr uint32_t T_FILE{2};
 constexpr uint32_t T_DEVICE{3};
+
+constexpr uint32_t FSSIZE {2000};
 }  // namespace fs
