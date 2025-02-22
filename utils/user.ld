@@ -8,12 +8,12 @@ SECTIONS
     *(.text .text.*)
   }
 
-  .rodata : {
+  .rodata : ALIGN(0x1000) {
     . = ALIGN(16);
     *(.srodata .srodata.*) /* do not need to distinguish this from .rodata */
     . = ALIGN(16);
     *(.rodata .rodata.*)
-  }
+   }
 
   .eh_frame : {
        *(.eh_frame)
