@@ -16,6 +16,13 @@ set (
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/strnlen.c
 )
 
+set (
+    CRT_SRC
+    ${PROJECT_SOURCE_DIR}/ulibc/crt/crt1.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/internal/syscall_ret.c
+
+)
+
 set(
     ULIBC_INCLUDE
     ${PROJECT_SOURCE_DIR}/ulibc/include
@@ -27,5 +34,7 @@ set(
 set (CMAKE_C_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64 -nostdlib -ffreestanding -mcmodel=medany")
 
 add_library(${ULIBC_NAME} ${ULIBC_SRC})
+add_library(crt1 ${CRT_SRC})
 
 target_include_directories(${ULIBC_NAME} PRIVATE ${ULIBC_INCLUDE})
+target_include_directories(crt1 PRIVATE ${ULIBC_INCLUDE})
