@@ -19,6 +19,15 @@
 
 虽然目前 wiki 界面没太多内容，因为该项目进度就在这里，我准备在 wiki 界面讲解一下这个项目，写哪部分了就讲哪部分，从而能帮助到其他人（前提是这个项目不烂尾，并且还算有点质量😶‍🌫️）
 
+## 如何使用
+
+```bash
+$ cmake -S . -B build
+$ cmake --build build
+$ make fs
+$ make qemu
+```
+
 ## 参考项目
 
 [mit-pdos/xv6-riscv](https://github.com/mit-pdos/xv6-riscv)
