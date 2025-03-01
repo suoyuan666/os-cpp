@@ -93,7 +93,7 @@ auto ialloc(uint32_t dev, int16_t type) -> struct file::inode * {
     auto *bp = bio::bread(dev, IBLOCK(inum, sb));
     auto *dip = (struct dinode *)bp->data + inum % IPB;
     if (dip->type == 0) {
-      std::memmove(dip, 0, sizeof(*dip));
+      std::memset(dip, 0, sizeof(*dip));
       dip->type = type;
       log::lwrite(bp);
       bio::brelse(*bp);
@@ -389,8 +389,8 @@ auto dir_lookup(struct file::inode *dp, char *name, uint32_t *poff)
 }
 
 auto dir_link(struct file::inode *dp, char *name, uint32_t inum) -> int {
-  struct file::inode *ip = nullptr;
-  if ((ip = dir_lookup(dp, name, nullptr)) == nullptr) {
+  struct file::inode *ip = dir_lookup(dp, name, nullptr);
+  if (ip != nullptr) {
     iput(ip);
     return -1;
   }

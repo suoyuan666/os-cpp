@@ -37,20 +37,20 @@ void format_arg(char *buffer, uint32_t size, const T &arg,
     }
 
     if (unsigned_value == 0) {
-      *ptr = '0';  // 直接写入'0'
-    } else {
-      // 从后向前填充数字
-      while (unsigned_value > 0 && ptr >= buffer) {
-        auto digit = unsigned_value % (is_hex ? 16 : 10);
-        *ptr-- = (digit < 10) ? ('0' + digit)
-                              : ('a' + (digit - 10));  // 十六进制小写
-        unsigned_value /= (is_hex ? 16 : 10);
-      }
+      puts("0");
+      return;
+    }
+    // 从后向前填充数字
+    while (unsigned_value > 0 && ptr >= buffer) {
+      auto digit = unsigned_value % (is_hex ? 16 : 10);
+      *ptr-- =
+          (digit < 10) ? ('0' + digit) : ('a' + (digit - 10));  // 十六进制小写
+      unsigned_value /= (is_hex ? 16 : 10);
+    }
 
-      // 添加负号（如果有空间）
-      if (neg && ptr >= buffer) {
-        *ptr-- = '-';
-      }
+    // 添加负号（如果有空间）
+    if (neg && ptr >= buffer) {
+      *ptr-- = '-';
     }
 
     // 确定有效字符串的起始位置并输出
@@ -84,12 +84,12 @@ void format_arg(char *buffer, uint32_t size, const T &arg,
 }
 
 template <typename... Args>
-void print_format(const char *fmt, Args... args);
+void print_format(const char *&fmt, Args... args);
 
 auto print_format(const char *fmt) -> void;
 
 template <typename First, typename... Next>
-auto print_format(const char *fmt, First first, Next... next) -> void {
+auto print_format(const char *&fmt, First first, Next... next) -> void {
   while (fmt != nullptr && *fmt != '\0') {
     if (*fmt == '{' && (fmt + 1) != nullptr &&
         (*(fmt + 1) == '}' ||
@@ -102,7 +102,15 @@ auto print_format(const char *fmt, First first, Next... next) -> void {
       } else {
         fmt += 2;
       }
-      print_format(fmt, next...);
+      if constexpr (sizeof...(next) > 0) {
+        print_format(fmt, next...);
+      } else {
+        puts(fmt);
+        while (fmt != nullptr && *fmt != '\0') {
+          ++fmt;
+        }
+        return;
+      }
     } else {
       console::putc(*fmt);
       ++fmt;

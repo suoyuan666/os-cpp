@@ -154,8 +154,10 @@ auto lwrite(struct bio::buf *b) -> void {
   }
   auto i = 0;
   for (; i < log.lh.n; i++) {
-    if (log.lh.block[i] == static_cast<int32_t>(b->blockno))  // log absorption
+    if (log.lh.block[i] == static_cast<int32_t>(b->blockno)) {
+      // log absorption
       break;
+    }
   }
   log.lh.block[i] = static_cast<int>(b->blockno);
   if (i == log.lh.n) {  // Add new block to log?

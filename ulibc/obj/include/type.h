@@ -20,3 +20,5 @@ typedef __builtin_va_list __isoc_va_list;
 #define __BIG_ENDIAN 4321
 
 #define __LONG_MAX 0x7fffffffffffffffL
+
+typedef unsigned mode_t;

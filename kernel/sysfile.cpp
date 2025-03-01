@@ -82,9 +82,12 @@ auto alloc_fd(struct file::file *&f) -> int {
 auto get_fd(uint32_t argu_no, struct file::file *&f) -> int {
   struct file::file *tf = nullptr;
 
-  int fd = get_argu(argu_no);
-  if (fd < 0 || fd >= static_cast<int>(file::NOFILE) ||
-      (tf = proc::curr_proc()->ofile[fd]) == nullptr) {
+  int fd = static_cast<int>(get_argu(argu_no));
+  if (fd < 0 || fd >= static_cast<int>(file::NOFILE)) {
+    return -1;
+  }
+  tf = proc::curr_proc()->ofile[fd];
+  if (tf == nullptr) {
     return -1;
   }
   f = tf;
@@ -114,7 +117,8 @@ auto create(char *path, int type, int16_t major, int16_t minor)
     return nullptr;
   }
 
-  if ((ip = fs::ialloc(dp->dev, type)) == nullptr) {
+  ip = fs::ialloc(dp->dev, type);
+  if (ip == nullptr) {
     fs::iunlockput(dp);
     return nullptr;
   }
@@ -178,7 +182,7 @@ auto sys_exec() -> uint64_t {
       fail_work4exec(argv, sizeof(argv) / sizeof(char *));
       return -1;
     }
-    if (fetch_addr(uargv + sizeof(uint64_t) * i, (uint64_t*)&uarg) == false) {
+    if (fetch_addr(uargv + sizeof(uint64_t) * i, (uint64_t *)&uarg) == false) {
       fail_work4exec(argv, sizeof(argv) / sizeof(char *));
       return -1;
     }
@@ -309,8 +313,34 @@ auto sys_chdir() -> uint64_t {
   return 0;
 }
 
-auto sys_dup() -> uint64_t { return 0; }
+auto fd_alloc(struct file::file *&f) -> int {
+  auto *p = proc::curr_proc();
+  for (int fd = 0; fd < static_cast<int>(file::NOFILE); ++fd) {
+    if (p->ofile[fd] == nullptr) {
+      p->ofile[fd] = f;
+      return fd;
+    }
+  }
+  return -1;
+}
+
+auto sys_dup() -> uint64_t {
+  struct file::file *f = nullptr;
+
+  if (get_fd(0, f) < 0) {
+    return -1;
+  }
+  auto fd = fd_alloc(f);
+  if (fd < 0) {
+    return -1;
+  }
+
+  file::dup(f);
+  return fd;
+}
+
 auto sys_getpid() -> uint64_t { return proc::curr_proc()->pid; }
+
 auto sys_sbrk() -> uint64_t {
   int n = static_cast<int>(get_argu(0));
   auto sz = proc::curr_proc()->sz;
@@ -321,8 +351,10 @@ auto sys_sbrk() -> uint64_t {
 
   return sz;
 }
+
 auto sys_sleep() -> uint64_t { return 0; }
 auto sys_uptime() -> uint64_t { return 0; }
+
 auto sys_open() -> uint64_t {
   char path[file::MAXPATH]{};
   int mode = static_cast<int>(get_argu(1));
@@ -407,7 +439,27 @@ auto sys_write() -> uint64_t {
 
   return file::write(f, addr, size);
 }
-auto sys_mknod() -> uint64_t { return 0; }
+auto sys_mknod() -> uint64_t {
+  char path[file::MAXPATH];
+
+  log::begin_op();
+
+  int major = static_cast<int>(get_argu(1));
+  int minor = static_cast<int>(get_argu(2));
+
+  auto addr = get_argu(0);
+  if (!fetch_str(addr, path, fs::MAXFILE)){
+    return -1;
+  }
+  auto *ip = create(path, file::T_DEVICE, major, minor);
+  if (ip == nullptr) {
+    return -1;
+  }
+
+  fs::iunlockput(ip);
+  log::end_op();
+  return 0;
+}
 auto sys_unlink() -> uint64_t { return 0; }
 auto sys_link() -> uint64_t { return 0; }
 auto sys_mkdir() -> uint64_t {
