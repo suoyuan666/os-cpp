@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "arch/riscv"
 #include "elf"
 #include "file"
 #include "fs"
@@ -12,7 +13,7 @@
 
 namespace loader {
 auto loadseg(uint64_t *pagetable, uint64_t va, struct file::inode *ip,
-             uint32_t offset, uint32_t sz) -> int {
+             uint32_t offset, uint32_t sz) -> bool {
   uint32_t i = 0, n = 0;
   uint64_t pa = 0;
 
@@ -27,11 +28,11 @@ auto loadseg(uint64_t *pagetable, uint64_t va, struct file::inode *ip,
       n = PGSIZE;
     }
     if (fs::readi(ip, false, (uint64_t)pa, offset + i, n) != n) {
-      return -1;
+      return false;
     }
   }
 
-  return 0;
+  return true;
 }
 
 auto flags2perm(uint32_t flags) -> uint32_t {
@@ -86,7 +87,8 @@ auto exec(char *path, char **argv) -> int {
     return -1;
   }
 
-  if ((pagetable = proc::alloc_pagetable(*p)) == nullptr) {
+  pagetable = proc::alloc_pagetable(*p);
+  if (pagetable == nullptr) {
     fail_work(pagetable, ip, sz);
     return -1;
   }
@@ -118,7 +120,7 @@ auto exec(char *path, char **argv) -> int {
       return -1;
     }
     sz = sz1;
-    if (loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0) {
+    if (!loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz)) {
       fail_work(pagetable, ip, sz);
       return -1;
     }
@@ -131,10 +133,10 @@ auto exec(char *path, char **argv) -> int {
   uint64_t oldsz = p->sz;
 
   sz = PG_ROUND_UP(sz);
-  uint64_t sz1 = 0;
-  if ((sz1 = vm::uvm_alloc(pagetable, sz,
-                           sz + (static_cast<uint64_t>(USERSTACK + 1)) * PGSIZE,
-                           PTE_W)) == 0) {
+  uint64_t sz1 = vm::uvm_alloc(
+      pagetable, sz, sz + ((static_cast<uint64_t>(USERSTACK + 1)) * PGSIZE),
+      PTE_W);
+  if (sz1 == 0) {
     fail_work(pagetable, ip, sz);
     return -1;
   }
@@ -142,7 +144,7 @@ auto exec(char *path, char **argv) -> int {
   vm::uvm_clear(pagetable,
                 sz - static_cast<uint64_t>((USERSTACK + 1) * PGSIZE));
   sp = sz;
-  stackbase = sp - USERSTACK * PGSIZE;
+  stackbase = sp - static_cast<uint64_t>(USERSTACK * PGSIZE);
 
   // Push argument strings, prepare rest of stack in ustack.
   for (argc = 0; argv[argc]; argc++) {
@@ -184,18 +186,22 @@ auto exec(char *path, char **argv) -> int {
   p->trapframe->a1 = sp;
 
   // Save program name for debugging.
-  for (last = s = path; *s; s++)
-    if (*s == '/') last = s + 1;
+  for (last = s = path; *s; s++) {
+    if (*s == '/') {
+      last = s + 1;
+    }
+  }
   std::strncpy(p->name, last, sizeof(p->name));
 
   // Commit to the user image.
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;
   p->sz = sz;
-  p->trapframe->epc = elf.entry;  // initial program counter = main
-  p->trapframe->sp = sp;          // initial stack pointer
+  p->trapframe->epc = elf.entry;
+  p->trapframe->sp = sp;
   proc::free_pagetable(oldpagetable, oldsz);
 
-  return argc;  // this ends up in a0, the first argument to main(argc, argv)
+  // clang-format off
+  return static_cast<int>(argc);  // this ends up in a0, the first argument to main(argc, argv)
 }
 }  // namespace loader
