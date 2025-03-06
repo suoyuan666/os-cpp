@@ -400,8 +400,11 @@ auto exit(int status) -> void {
   reparent(*p);
   wakeup(p->parent);
 
+  lock::spin_acquire(&p->lock);
+
   p->xstate = status;
   p->status = proc_status::ZOMBIE;
+
   lock::spin_release(&wait_lock);
 
   sched();
