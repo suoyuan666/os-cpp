@@ -19,6 +19,21 @@
 
 虽然目前 wiki 界面没太多内容，因为该项目进度就在这里，我准备在 wiki 界面讲解一下这个项目，写哪部分了就讲哪部分，从而能帮助到其他人（前提是这个项目不烂尾，并且还算有点质量😶‍🌫️）
 
+## 如何使用
+
+首先，确保本机安装了 Clang/LLVM 编译器。除此之外还要有 qemu 针对 RISC-V 架构的模拟器，这个软件包一般可能叫 qemu-system-misc, qemu-emulators-full, qemu-system-riscv 之类的
+
+部分发行版安装了 clang 和 llvm 之后可能没安装 lld 链接器，需要单独安装
+
+当然，还需要安装 cmake 和 make
+
+```bash
+$ cmake -S . -B build
+$ cmake --build build
+$ make fs
+$ make qemu
+```
+
 ## 参考项目
 
 [mit-pdos/xv6-riscv](https://github.com/mit-pdos/xv6-riscv)

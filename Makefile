@@ -4,7 +4,9 @@ K = build/kernel
 QEMU = qemu-system-riscv64
 
 UPROGS=\
-	$U/init\
+	$U/init \
+	$U/sh \
+	$U/cat  \
 
 CPUS = 1
 

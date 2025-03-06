@@ -22,3 +22,4 @@ typedef __builtin_va_list __isoc_va_list;
 #define __LONG_MAX 0x7fffffffffffffffL
 
 typedef unsigned mode_t;
+typedef int pid_t;

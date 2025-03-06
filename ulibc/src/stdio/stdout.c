@@ -2,16 +2,6 @@
 
 #include "stdio_impl.h"
 
-#define UNGET 8
-
-#define F_PERM 1
-#define F_NORD 4
-#define F_NOWR 8
-#define F_EOF 16
-#define F_ERR 32
-#define F_SVB 64
-#define F_APP 128
-
 static unsigned char buf[BUFSIZ + UNGET];
 
 hidden FILE __stdout_FILE = {
