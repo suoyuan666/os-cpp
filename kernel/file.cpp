@@ -95,10 +95,11 @@ auto read(struct file* f, uint64_t addr, int n) -> int {
         !devsw[f->major].read) {
       return -1;
     }
-    rs = devsw[f->major].read(1, addr, n);
+    rs = devsw[f->major].read(true, addr, n);
   } else if (f->type == file::FD_INODE) {
     fs::ilock(f->ip);
-    if ((rs = fs::readi(f->ip, true, addr, f->off, n)) > 0) {
+    rs = static_cast<int>(fs::readi(f->ip, true, addr, f->off, n));
+    if (rs > 0) {
       f->off += rs;
     }
     fs::iunlock(f->ip);

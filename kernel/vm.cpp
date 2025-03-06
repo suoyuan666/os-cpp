@@ -101,6 +101,10 @@ auto kvm_make() -> std::optional<uint64_t *> {
 
 auto walk(uint64_t *pagetable, uint64_t va, bool alloc)
     -> std::optional<uint64_t *> {
+  if (va > VA_MAX) {
+    fmt::panic("vm::walk: va > VA_MAX");
+  }
+
   for (int level{2}; level > 0; --level) {
     auto *pte = &pagetable[PX(level, va)];
     if (*pte & PTE_V) {
@@ -112,6 +116,8 @@ auto walk(uint64_t *pagetable, uint64_t va, bool alloc)
           return {};
         }
         pagetable = opt_pagetable.value();
+      } else {
+        return {};
       }
       std::memset(pagetable, 0, PGSIZE);
       *pte = PA2PTE(reinterpret_cast<uint64_t>(pagetable)) | PTE_V;
@@ -197,7 +203,11 @@ auto inithart() -> void {
 }
 
 auto uvm_create() -> uint64_t * {
-  uint64_t *rs = kalloc().value();
+  auto opt_rs = kalloc();
+  if (!opt_rs.has_value()) {
+    return nullptr;
+  }
+  auto *rs = opt_rs.value();
   std::memset(rs, 0, PGSIZE);
   return rs;
 }
@@ -226,7 +236,8 @@ auto uvm_unmap(uint64_t *pagetable, uint64_t va, uint64_t npages, bool do_free)
     }
     auto *pte = opt_pte.value();
     if ((*pte & PTE_V) == 0) {
-      fmt::panic("vm::uvm_unmap: not mapped");
+      continue;
+      // fmt::panic("vm::uvm_unmap: not mapped");
     }
     if (PTE_FLAGS(*pte) == PTE_V) {
       fmt::panic("vm::uvm_unmap: not a leaf");
@@ -287,14 +298,15 @@ auto uvm_dealloc(uint64_t *pagetable, uint64_t oldsz, uint64_t newsz)
 
 auto uvm_copy(uint64_t *old_pagetable, uint64_t *new_pagetable, uint64_t sz)
     -> bool {
-  for (uint32_t i{0}; i < sz; ++i) {
+  for (uint64_t i{0}; i < sz; i += PGSIZE) {
     auto opt_pte = walk(old_pagetable, i, false);
     if (!opt_pte.has_value()) {
       fmt::panic("vm::uvm_copy: pte not exit");
     }
     auto *pte = opt_pte.value();
     if ((*pte & PTE_V) == 0) {
-      fmt::panic("vm::uvm_copy: page not present");
+      continue;
+      // fmt::panic("vm::uvm_copy: page not present");
     }
 
     auto pa = PTE2PA(*pte);
