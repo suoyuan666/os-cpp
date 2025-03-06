@@ -4,13 +4,18 @@
 #include <unistd.h>
 
 int main() {
+  char *argv[] = {"sh", 0};
+
   if (open("console", O_RDWR) < 0) {
     mknod("console", 1, 0);
     open("console", O_RDWR);
   }
   dup(0);  // stdout
   dup(0);  // stderr
-  write(1, "hello, world\n", 14);
+  printf("init process start\n");
+  if (fork() == 0) {
+    execve("sh", argv, NULL);
+  }
   while (1) {
   };
   return 0;
