@@ -15,6 +15,8 @@
 #define F_SVB 64
 #define F_APP 128
 
+#define UNGET 8
+
 struct _IO_FILE {
   unsigned flags;
   unsigned char *rpos, *rend;
@@ -46,11 +48,21 @@ struct _IO_FILE {
 // hidden int __lockfile(FILE *);
 // hidden void __unlockfile(FILE *);
 
+hidden size_t __stdio_read(FILE *, unsigned char *, size_t);
 hidden size_t __stdio_write(FILE *, const unsigned char *, size_t);
+hidden size_t __stdout_write(FILE *, const unsigned char *, size_t);
+hidden off_t __stdio_seek(FILE *, off_t, int);
+hidden int __stdio_close(FILE *);
 
 hidden int __toread(FILE *);
 hidden int __towrite(FILE *);
 
 hidden size_t __fwritex(const unsigned char *, size_t, FILE *);
 
+#define feof(f) ((f)->flags & F_EOF)
 #define ferror(f) ((f)->flags & F_ERR)
+
+int __overflow(FILE *, int), __uflow(FILE *);
+
+#define getc_unlocked(f) \
+	( ((f)->rpos != (f)->rend) ? *(f)->rpos++ : __uflow((f)) )
