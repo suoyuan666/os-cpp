@@ -1,0 +1,3 @@
+target create build/kernel/kernel
+gdb-remote localhost:1234
+breakpoint set --name main
