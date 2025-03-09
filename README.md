@@ -4,15 +4,18 @@
 
 该项目计划包含一个内核、libc、libc++、coreutils
 
-更多关于项目的讲解在 [wiki](https://github.com/suoyuan666/os-cpp/wiki)
-
-虽然目前 wiki 界面没太多内容，因为该项目进度就在这里，我准备在 wiki 界面讲解一下这个项目，写哪部分了就讲哪部分，从而能帮助到其他人（前提是这个项目不烂尾，并且还算有点质量😶‍🌫️）
-
 ## 如何使用
 
-首先，确保本机安装了 Clang/LLVM 编译器。除此之外还要有 qemu 针对 RISC-V 架构的模拟器，这个软件包一般可能叫 qemu-system-misc, qemu-emulators-full, qemu-system-riscv 之类的
+由于该项目显示指定了编译器是 Clang，所以需要安装它。一般来说，安装 clang 的时候，llvm 会被作为依赖一起安装，所以只需要手动指定安装 clang 和 qemu 即可
 
-部分发行版安装了 clang 和 llvm 之后可能没安装 lld 链接器，需要单独安装
+对于 qemu 来说，我们需要安装目标模拟架构为 RISC-V 的 qemu，而非单纯使用包管理器安装 qemu 即可。
+
+- 对于 Debian 来说，应该安装的软件包名是 [qemu-system-misc](https://packages.debian.org/bookworm/qemu-system-misc)
+- 对于 Fedora 来说，应该安装的软件包名是 [qemu-system-riscv](https://packages.fedoraproject.org/pkgs/qemu/qemu-system-riscv/index.html)
+- 对于 Arch Linux 来说，应该安装的软件包名是 [qemu-system-riscv](https://archlinux.org/packages/extra/x86_64/qemu-system-riscv/)
+- 对于 Gentoo Linux 来说，应该给 app-emulation/qemu 的 USE 变量添加一个 `qemu_softmmu_targets_riscv32 qemu_softmmu_targets_riscv64` 重新编译即可
+
+Debian 的 qemu-system-misc 是把所有支持模拟的架构都装上了，这不好，但是对于 stable 分支来说，貌似只能这样，tesing 分支也有 [qemu-system-riscv](https://packages.debian.org/trixie/qemu-system-riscv)
 
 当然，还需要安装 cmake 和 make
 
