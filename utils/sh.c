@@ -18,6 +18,7 @@ int main(void) {
   int fd = 0;
   static char buf[100];
   char *argv[] = {"cat", "README.md", 0};
+  // char *argv[] = {"ls", 0};
 
   while ((fd = open("console", O_RDWR)) >= 0) {
     if (fd >= 3) {

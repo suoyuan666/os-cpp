@@ -7,6 +7,7 @@ UPROGS=\
 	$U/init \
 	$U/sh \
 	$U/cat  \
+	$U/ls  \
 
 CPUS = 1
 
