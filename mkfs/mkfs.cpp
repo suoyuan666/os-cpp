@@ -10,8 +10,6 @@
 
 #define NINODES 200
 
-#define min(a, b) ((a) < (b) ? (a) : (b))
-
 // Disk layout:
 // [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
 
@@ -20,7 +18,7 @@ constexpr uint32_t ninodeblocks = NINODES / fs::IPB + 1;
 constexpr uint32_t nlog = fs::LOGSIZE;
 
 struct fs::superblock sb{};
-const char zeroes[fs::BSIZE]{0};
+const char zeroes[fs::BSIZE]{};
 uint32_t freeinode = 1;
 uint32_t freeblock;
 
@@ -30,7 +28,7 @@ void winode(std::fstream &fd, uint inum, struct fs::dinode *ip);
 void rinode(std::fstream &fd, uint inum, struct fs::dinode *ip);
 auto ialloc(std::fstream &fd, ushort type) -> uint32_t;
 void balloc(std::fstream &fd, int used);
-void iappend(std::fstream &fd, uint inum, void *xp, int n);
+void iappend(std::fstream &fd, uint inum, void *xp, uint64_t n);
 
 auto xshort(ushort x) -> ushort {
   ushort y = 0;
@@ -76,7 +74,7 @@ auto main(int argc, char *argv[]) -> int {
 
   std::cout << "nmeta " << nmeta << " (boot, super, log blocks " << nlog
             << " inode blocks " << ninodeblocks << " bitmap blocks " << nbitmap
-            << " ) blocks " << nblocks << "  total " << fs::FSSIZE << "\n";
+            << ") blocks " << nblocks << "  total " << fs::FSSIZE << "\n";
 
   freeblock = nmeta;
 
@@ -94,14 +92,12 @@ auto main(int argc, char *argv[]) -> int {
 
   {
     struct fs::dirent de{};
-    bzero(&de, sizeof(de));
     de.inum = xshort(rootino);
     strcpy(de.name, ".");
     iappend(fs, rootino, &de, sizeof(de));
   }
   {
     struct fs::dirent de{};
-    bzero(&de, sizeof(de));
     de.inum = xshort(rootino);
     strcpy(de.name, "..");
     iappend(fs, rootino, &de, sizeof(de));
@@ -131,8 +127,12 @@ auto main(int argc, char *argv[]) -> int {
     strncpy(de.name, shortname, fs::DIRSIZ);
     iappend(fs, rootino, &de, sizeof(de));
 
-    while (fd.read(buf, sizeof(buf))) {
-      int size = static_cast<int>(fd.gcount());
+    while (true) {
+      fd.read(buf, sizeof buf);
+      auto size = static_cast<uint64_t>(fd.gcount());
+      if (size == 0) {
+        break;
+      }
       iappend(fs, inum, buf, size);
     }
   }
@@ -227,9 +227,9 @@ void balloc(std::fstream &fd, int used) {
   wsect(fd, sb.bmapstart, buf);
 }
 
-void iappend(std::fstream &fd, uint inum, void *xp, int n) {
+void iappend(std::fstream &fd, uint inum, void *xp, uint64_t n) {
   char *p = static_cast<char *>(xp);
-  uint fbn = 0, off = 0, n1 = 0;
+  uint32_t fbn = 0, off = 0, n1 = 0;
   struct fs::dinode din{};
   char buf[fs::BSIZE];
   uint indirect[fs::NINDIRECT];
@@ -256,10 +256,11 @@ void iappend(std::fstream &fd, uint inum, void *xp, int n) {
       }
       x = xint(indirect[fbn - fs::NDIRECT]);
     }
-    n1 = min(static_cast<uint32_t>(n), (fbn + 1) * fs::BSIZE - off);
+    n1 = std::min(static_cast<uint32_t>(n), (fbn + 1) * fs::BSIZE - off);
     rsect(fd, x, buf);
     bcopy(p, buf + off - (fbn * fs::BSIZE), n1);
     wsect(fd, x, buf);
+
     n -= n1;
     off += n1;
     p += n1;
