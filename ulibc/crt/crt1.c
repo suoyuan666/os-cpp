@@ -1,9 +1,8 @@
 #include "syscall.h"
 
-int main();
-
 void _start()
 {
+  extern int main();
   main();
   syscall(SYS_exit, 0);
 }

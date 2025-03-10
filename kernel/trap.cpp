@@ -51,10 +51,9 @@ auto user_trap() -> void {
   } else if ((which_dev = devintr()) != 0) {
     // ok
   } else {
-    // clang-format off
-    fmt::print("usertrap(): unexpected scause 0x{x} pid={}\n", r_scause(), p->pid);
-    fmt::print("            sepc=0x{x} stval=0x{x}\n", r_sepc(), r_stval());
-    // clang-format on
+    fmt::print("usertrap(): unexpected scause 0x{x}, sepc=0x{x}, stval=0x{x}\n",
+               r_scause(), r_sepc(), r_stval());
+    fmt::print("            pid: {}, name: {}\n", p->pid, p->name);
     proc::set_killed(p);
   }
 

@@ -55,11 +55,17 @@ char *fgets(char *restrict s, int n, FILE *restrict f) {
   int cc = 0;
   char c = 0;
 
+  (void)f;
+
   for (i = 0; i + 1 < n;) {
     cc = syscall(SYS_read, f->fd, &c, 1);
-    if (cc < 1) break;
+    if (cc < 1) {
+      break;
+    }
     s[i++] = c;
-    if (c == '\n' || c == '\r') break;
+    if (c == '\n' || c == '\r') {
+      break;
+    }
   }
   s[i] = '\0';
   return s;

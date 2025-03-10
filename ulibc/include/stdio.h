@@ -2,9 +2,11 @@
 extern "C" {
 #endif
 
-#include "type.h"
 #include <features.h>
 #include <stddef.h>
+#include <stdint.h>
+
+#include "type.h"
 
 #define BUFSIZ 1024
 
@@ -23,6 +25,7 @@ int getc(FILE *);
 
 char *fgets(char *__restrict, int, FILE *__restrict);
 char *gets(char *);
+char *gets_s(char *, uint32_t);
 
 extern hidden FILE __stdout_FILE;
 extern hidden FILE __stdout_FILE;
@@ -31,7 +34,7 @@ extern FILE *const stdin;
 extern FILE *const stdout;
 extern FILE *const stderr;
 
-#define stdin  (stdin)
+#define stdin (stdin)
 #define stdout (stdout)
 #define stderr (stderr)
 
