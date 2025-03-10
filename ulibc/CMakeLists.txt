@@ -9,7 +9,9 @@ set (
     # process
     ${PROJECT_SOURCE_DIR}/ulibc/src/process/wait.c
     # stat
+    ${PROJECT_SOURCE_DIR}/ulibc/src/stat/fstat.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stat/mknod.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/stat/stat.c
     # stdio
     # ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/__lockfile.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/__stdio_read.c
@@ -30,7 +32,11 @@ set (
     # string
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/memchr.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/memcpy.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/string/memmove.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/memset.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/string/strcpy.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/string/strcpy.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/string/strlen.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/strnlen.c
     # unistd
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/close.c
