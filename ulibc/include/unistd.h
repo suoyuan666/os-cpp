@@ -1,4 +1,6 @@
+#pragma once
 #include "type.h"
+#include <stdint.h>
 
 int dup(int);
 int pipe(int [2]);
@@ -9,3 +11,5 @@ ssize_t write(int, const void *, size_t);
 
 pid_t fork(void);
 int execve(const char *, char *const [], char *const []);
+
+void *sbrk(int);

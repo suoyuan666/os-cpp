@@ -9,12 +9,12 @@
 static const char xdigits[16] = {"0123456789ABCDEF"};
 
 static void out(FILE *f, const char *s, size_t l) {
-  // if (f == stdout) {
-  //   syscall(SYS_write, 1, s, l);
-  // }
-  if (!ferror(f)) {
-    __fwritex((void *)s, l, f);
+  if (f == stdout) {
+    syscall(SYS_write, 1, s, l);
   }
+  // if (!ferror(f)) {
+  //   __fwritex((void *)s, l, f);
+  // }
 }
 
 static void printint(FILE *restrict f, int xx, int base, int sgn) {

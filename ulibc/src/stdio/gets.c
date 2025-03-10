@@ -1,7 +1,6 @@
 #include <stddef.h>
 #include <stdio.h>
 
-#include "stdio_def.h"
 #include "stdio_impl.h"
 
 char *gets(char *s) {

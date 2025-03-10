@@ -1,3 +1,4 @@
+#pragma once
 #include <stdio.h>
 
 #undef stdin
@@ -11,4 +12,3 @@ extern hidden FILE __stderr_FILE;
 #define stdin (&__stdin_FILE)
 #define stdout (&__stdout_FILE)
 #define stderr (&__stderr_FILE)
-

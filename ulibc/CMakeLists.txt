@@ -22,19 +22,21 @@ set (
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/fgets.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/fwrite.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/gets.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/gets_s.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/printf.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/stdin.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/stdout.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/vfprintf.c
-    # string
+    # stdlib
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdlib/_Exit.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdlib/exit.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/stdlib/malloc_free.c
     # string
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/memchr.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/memcpy.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/memmove.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/memset.c
-    ${PROJECT_SOURCE_DIR}/ulibc/src/string/strcpy.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/string/strchr.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/strcpy.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/strlen.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/strnlen.c
@@ -44,6 +46,7 @@ set (
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/execve.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/fork.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/read.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/sbrk.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/write.c
 )
 

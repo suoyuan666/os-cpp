@@ -15,5 +15,7 @@ char *strncat (char *__restrict, const char *__restrict, size_t);
 int strcmp (const char *, const char *);
 int strncmp (const char *, const char *, size_t);
 
+char *strchr (const char *, int);
+
 size_t strlen (const char *);
 size_t strnlen (const char *, size_t);
