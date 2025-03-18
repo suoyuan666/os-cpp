@@ -8,15 +8,15 @@
 
 namespace bio {
 struct buf {
-  int valid;  // has data been read from disk?
-  int disk;   // does disk "own" buf?
-  uint32_t dev;
-  uint32_t blockno;
-  struct lock::sleeplock lock;
-  uint32_t refcnt;
-  struct buf *prev;  // LRU cache list
-  struct buf *next;
-  unsigned char data[fs::BSIZE];
+  int valid{};  // has data been read from disk?
+  int disk{};   // does disk "own" buf?
+  uint32_t dev{};
+  uint32_t blockno{};
+  class lock::sleeplock lock{"buffer"};
+  uint32_t refcnt{};
+  struct buf *prev{};  // LRU cache list
+  struct buf *next{};
+  unsigned char data[fs::BSIZE]{};
 };
 
 auto init() -> void;

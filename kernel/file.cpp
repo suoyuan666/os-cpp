@@ -14,49 +14,49 @@ namespace file {
 struct devsw devsw[NDEV];
 
 struct {
-  struct lock::spinlock lock;
+  class lock::spinlock lock{"ftable"};
   struct file file[NFILE];
 } ftable;
 
-auto init() -> void { lock::spin_init(ftable.lock, (char*)"ftable"); }
+auto init() -> void {}
 
 auto alloc() -> struct file* {
-  lock::spin_acquire(&ftable.lock);
+  ftable.lock.acquire();
   for (auto& file : ftable.file) {
     if (file.ref == 0) {
       file.ref = 1;
-      lock::spin_release(&ftable.lock);
+      ftable.lock.release();
       return &file;
     }
   }
-  lock::spin_release(&ftable.lock);
+  ftable.lock.release();
   return nullptr;
 }
 
 auto dup(struct file* f) -> struct file* {
-  lock::spin_acquire(&ftable.lock);
+  ftable.lock.acquire();
   if (f->ref < 1) {
     fmt::panic("file::dup");
   }
   ++f->ref;
-  lock::spin_release(&ftable.lock);
+  ftable.lock.release();
   return f;
 }
 
 auto close(struct file* f) -> void {
-  lock::spin_acquire(&ftable.lock);
+  ftable.lock.acquire();
   if (f->ref < 1) {
     fmt::panic("file::close");
   }
   if (--f->ref > 0) {
-    lock::spin_release(&ftable.lock);
+    ftable.lock.release();
     return;
   }
 
   auto ff = *f;
   f->ref = 0;
   f->type = file::FD_NONE;
-  lock::spin_release(&ftable.lock);
+  ftable.lock.release();
 
   if (ff.type == file::FD_PIPE) {
     pipeclose(ff.pipe, ff.writable);
@@ -120,7 +120,8 @@ auto write(struct file* f, uint64_t addr, int n) -> int {
   if (f->type == ::file::file::FD_PIPE) {
     rs = pipewrite(f->pipe, addr, n);
   } else if (f->type == T_DEVICE) {
-    if (f->major < 0 || f->major >= static_cast<int16_t>(NDEV) || !devsw[f->major].write) {
+    if (f->major < 0 || f->major >= static_cast<int16_t>(NDEV) ||
+        !devsw[f->major].write) {
       return -1;
     }
     rs = devsw[f->major].write(1, addr, n);

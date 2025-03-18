@@ -15,7 +15,7 @@ struct logheader {
 };
 
 struct log {
-  struct lock::spinlock lock;
+  class lock::spinlock lock{"log"};
   uint32_t start;
   uint32_t size;
   uint32_t outstanding;  // how many FS sys calls are executing.
@@ -75,7 +75,6 @@ auto recover() -> void {
 }
 
 auto init(int dev, struct fs::superblock &supblock) -> void {
-  lock::spin_init(log.lock, (char *)"log");
   log.start = supblock.logstart;
   log.size = supblock.nlog;
   log.dev = dev;
@@ -104,7 +103,7 @@ auto commit() -> void {
 }
 
 auto begin_op() -> void {
-  lock::spin_acquire(&log.lock);
+  log.lock.acquire();
   while (true) {
     if (log.committing) {
       proc::sleep(&log, log.lock);
@@ -113,7 +112,7 @@ auto begin_op() -> void {
       proc::sleep(&log, log.lock);
     } else {
       log.outstanding += 1;
-      lock::spin_release(&log.lock);
+      log.lock.release();
       break;
     }
   }
@@ -122,7 +121,7 @@ auto begin_op() -> void {
 auto end_op() -> void {
   bool do_commit{false};
 
-  lock::spin_acquire(&log.lock);
+  log.lock.acquire();
   log.outstanding -= 1;
   if (log.committing) {
     fmt::panic("log::end_op: log committing");
@@ -132,19 +131,19 @@ auto end_op() -> void {
   } else {
     proc::wakeup(&log);
   }
-  lock::spin_release(&log.lock);
+  log.lock.release();
 
   if (do_commit) {
     commit();
-    lock::spin_acquire(&log.lock);
+    log.lock.acquire();
     log.committing = 0;
     proc::wakeup(&log);
-    lock::spin_release(&log.lock);
+    log.lock.release();
   }
 }
 
 auto lwrite(struct bio::buf *b) -> void {
-  lock::spin_acquire(&log.lock);
+  log.lock.acquire();
   if (log.lh.n >= static_cast<int>(fs::LOGSIZE) ||
       log.lh.n >= static_cast<int>(log.size) - 1) {
     fmt::panic("too big a transaction");
@@ -164,7 +163,7 @@ auto lwrite(struct bio::buf *b) -> void {
     bio::bpin(b);
     log.lh.n++;
   }
-  lock::spin_release(&log.lock);
+  log.lock.release();
 }
 
 }  // namespace log

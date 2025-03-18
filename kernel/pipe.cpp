@@ -24,7 +24,6 @@ auto pipealloc(struct file **f0, struct file **f1) -> int {
   pi->nwrite = 0;
   pi->nread = 0;
 
-  lock::spin_init(pi->lock, (char *)"pipe");
   (*f0)->type = ::file::file::FD_PIPE;
   (*f0)->readable = true;
   (*f0)->writable = false;
@@ -49,7 +48,7 @@ bad:
 }
 
 auto pipeclose(struct pipe *pi, bool writable) -> void {
-  lock::spin_acquire(&pi->lock);
+  pi->lock.acquire();
   if (writable) {
     pi->writeopen = false;
     proc::wakeup(&pi->nread);
@@ -58,20 +57,21 @@ auto pipeclose(struct pipe *pi, bool writable) -> void {
     proc::wakeup(&pi->nwrite);
   }
   if (pi->readopen == false && pi->writeopen == false) {
-    spin_release(&pi->lock);
+    pi->lock.release();
     vm::kfree(pi);
-  } else
-    spin_release(&pi->lock);
+  } else {
+    pi->lock.release();
+  }
 }
 
 auto pipewrite(struct pipe *pi, uint64_t addr, int n) -> uint32_t {
   int i = 0;
   auto *pr = proc::curr_proc();
 
-  spin_acquire(&pi->lock);
+  pi->lock.acquire();
   while (i < n) {
     if (pi->readopen == false || proc::get_killed(pr)) {
-      spin_release(&pi->lock);
+      pi->lock.release();
       return -1;
     }
     if (pi->nwrite == pi->nread + PIPESIZE) {  // DOC: pipewrite-full
@@ -87,7 +87,7 @@ auto pipewrite(struct pipe *pi, uint64_t addr, int n) -> uint32_t {
     }
   }
   proc::wakeup(&pi->nread);
-  spin_release(&pi->lock);
+  pi->lock.release();
 
   return i;
 }
@@ -97,10 +97,10 @@ auto piperead(struct pipe *pi, uint64_t addr, int n) -> uint32_t {
   auto *pr = proc::curr_proc();
   char ch = 0;
 
-  spin_acquire(&pi->lock);
+  pi->lock.acquire();
   while (pi->nread == pi->nwrite && pi->writeopen) {  // DOC: pipe-empty
     if (proc::get_killed(pr)) {
-      spin_release(&pi->lock);
+      pi->lock.release();
       return -1;
     }
     proc::sleep(&pi->nread, pi->lock);  // DOC: piperead-sleep
@@ -115,7 +115,7 @@ auto piperead(struct pipe *pi, uint64_t addr, int n) -> uint32_t {
     }
   }
   proc::wakeup(&pi->nwrite);
-  spin_release(&pi->lock);
+  pi->lock.release();
   return i;
 }
 }  // namespace file

@@ -22,7 +22,7 @@ constexpr uint64_t LSR{5};
 // constexpr uint64_t LSR_RX_READY {1<<0};
 constexpr uint64_t LSR_TX_IDLE{1U << 5U};
 
-struct lock::spinlock uart_tx_lock;
+class lock::spinlock uart_tx_lock{"uart"};
 
 constexpr uint32_t UART_TX_BUF_SIZE{32};
 char uart_tx_buf[UART_TX_BUF_SIZE];
@@ -51,7 +51,6 @@ auto init() -> void {
   write_reg(LCR, LCR_EIGHT_BITS);
   write_reg(FCR, FCR_FIFO_ENABLE | FCR_FIFO_CLEAR);
   write_reg(IER, IER_RX_ENABLE | IER_TX_ENABLE);
-  lock::spin_init(uart_tx_lock, (char*)"uart");
 }
 
 auto start() -> void {
@@ -75,7 +74,7 @@ auto start() -> void {
 }
 
 auto putc(char c) -> void {
-  lock::spin_acquire(&uart_tx_lock);
+  uart_tx_lock.acquire();
 
   while (uart_tx_w == uart_tx_r + UART_TX_BUF_SIZE) {
     proc::sleep(&uart_tx_r, uart_tx_lock);
@@ -84,7 +83,7 @@ auto putc(char c) -> void {
   uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE] = c;
   ++uart_tx_w;
   start();
-  lock::spin_release(&uart_tx_lock);
+  uart_tx_lock.release();
 }
 
 auto kputc(char c) -> void {
@@ -113,8 +112,8 @@ auto intr() -> void {
     console::intr(opt_c.value());
   }
 
-  spin_acquire(&uart_tx_lock);
+  uart_tx_lock.acquire();
   start();
-  spin_release(&uart_tx_lock);
+  uart_tx_lock.release();
 }
 }  // namespace uart

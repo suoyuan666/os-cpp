@@ -21,14 +21,13 @@ extern "C" char etext[];
 
 uint64_t *kernel_pagetable;
 struct {
-  struct lock::spinlock lock{};
+  class lock::spinlock lock{"kmem"};
   struct list *freelist{};
 } kmem{};
 
 auto kvm_make() -> std::optional<uint64_t *>;
 
 auto kinit() -> void {
-  lock::spin_init(kmem.lock, (char *)"kmem");
   for (auto *p_start = (char *)PG_ROUND_UP((uint64_t)end);
        p_start + PGSIZE <= (char *)PHY_END; p_start += PGSIZE) {
     kfree(p_start);
@@ -38,23 +37,23 @@ auto kinit() -> void {
 auto kfree(void *addr) -> void {
   std::memset(addr, 1, PGSIZE);
   auto *tmp = static_cast<struct list *>(addr);
-  lock::spin_acquire(&kmem.lock);
+  kmem.lock.acquire();
   tmp->next = kmem.freelist;
   kmem.freelist = tmp;
-  lock::spin_release(&kmem.lock);
+  kmem.lock.release();
 }
 
 auto kalloc() -> std::optional<uint64_t *> {
-  lock::spin_acquire(&kmem.lock);
+  kmem.lock.acquire();
   auto *tmp = kmem.freelist;
   if (tmp) {
     kmem.freelist = tmp->next;
     std::memset((char *)tmp, 5, PGSIZE);  // fill with junk
     auto rs_val = (uint64_t *)(tmp);
-    lock::spin_release(&kmem.lock);
+    kmem.lock.release();
     return {rs_val};
   }
-  lock::spin_release(&kmem.lock);
+  kmem.lock.release();
   return {};
 }
 

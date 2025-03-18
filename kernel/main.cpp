@@ -13,7 +13,7 @@
 #include "vm"
 
 __attribute__((aligned(16))) char stack0[4096];
-volatile static bool started = false;
+volatile static bool started{false};
 
 auto main() -> void;
 
@@ -84,7 +84,8 @@ auto main() -> void {
     __sync_synchronize();
     started = true;
   } else {
-    while (started == false);
+    while (started == false) {
+    }
     __sync_synchronize();
     fmt::print("hart {} starting\n", proc::cpuid());
     vm::inithart();

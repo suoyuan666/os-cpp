@@ -5,8 +5,15 @@
 #include <type_traits>
 
 #include "console"
+#include "lock"
 
 namespace fmt {
+
+static struct {
+  class lock::spinlock lock{};
+  bool locked{true};
+} pr;
+
 auto puts(const char *str) -> void;
 
 template <typename T>
@@ -120,7 +127,14 @@ auto print_format(const char *&fmt, First first, Next... next) -> void {
 
 template <typename... Args>
 auto print(const char *fmt, Args... args) -> void {
+  auto locked = pr.locked;
+  if (locked) {
+    pr.lock.acquire();
+  }
   print_format(fmt, args...);
+  if (locked) {
+    pr.lock.release();
+  }
 }
 
 auto print(const char *str) -> void;

@@ -1,5 +1,7 @@
 #include "fmt"
+
 #include "console"
+#include "lock"
 
 namespace fmt {
 auto puts(const char *str) -> void {
@@ -12,7 +14,16 @@ auto puts(const char *str) -> void {
 
 auto print_format(const char *fmt) -> void { puts(fmt); }
 
-auto print(const char *str) -> void { puts(str); }
+auto print(const char *str) -> void {
+  auto locked = pr.locked;
+  if (locked) {
+    pr.lock.acquire();
+  }
+  puts(str);
+  if (locked) {
+    pr.lock.release();
+  }
+}
 
 auto panic(const char *str) -> void {
   puts("panic: ");

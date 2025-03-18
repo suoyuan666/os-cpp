@@ -29,7 +29,7 @@ namespace proc {
  *   0x00000010 93086000 73000000 93081000 73000000 ..`.s.......s...
  *   0x00000020 eff09fff 2f696e69 74000000 24000000 ..../init...$...
  *   0x00000030 00000000 00000000 00000000          ............
-*/
+ */
 
 const unsigned char initcode[] = {
     0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 0x00, 0x00,
@@ -40,24 +40,23 @@ const unsigned char initcode[] = {
 
 struct process proc_list[NPROC];
 struct process *init_proc{};
-struct cpu cpu{};
+struct cpu cpu_list[NCPU];
 uint32_t next_pid{1};
 
-struct lock::spinlock wait_lock;
-struct lock::spinlock pid_lock;
+class lock::spinlock wait_lock{"wait_lock"};
+class lock::spinlock pid_lock{"next_pid"};
 
 auto forkret() -> void;
 
 auto cpuid() -> uint32_t { return r_tp(); }
-auto curr_cpu() -> struct cpu * { return &cpu; }
+auto curr_cpu() -> struct cpu * {
+  auto id = cpuid();
+  return &cpu_list[id];
+}
 auto curr_proc() -> struct process * { return curr_cpu()->proc; }
 
 auto init() -> void {
-  lock::spin_init(pid_lock, (char *)"next_pid");
-  lock::spin_init(wait_lock, (char *)"wait_lock");
-
   for (auto &proc : proc_list) {
-    lock::spin_init(proc.lock, (char *)"proc");
     proc.status = proc_status::UNUSED;
     proc.kernel_stack =
         vm::KSTACK((int)((uint64_t)&proc - (uint64_t)&proc_list[0]));
@@ -78,10 +77,10 @@ auto map_stack(uint64_t *kpt) -> void {
 }
 
 auto alloc_pid() -> uint32_t {
-  lock::spin_acquire(&pid_lock);
+  pid_lock.acquire();
   auto pid = next_pid;
   next_pid++;
-  lock::spin_release(&pid_lock);
+  pid_lock.release();
   return pid;
 }
 
@@ -131,7 +130,7 @@ auto free(struct process *p) -> void {
 
 auto alloc_proc() -> struct process * {
   for (auto &p : proc_list) {
-    lock::spin_acquire(&p.lock);
+    p.lock.acquire();
     if (p.status == proc_status::UNUSED) {
       p.pid = alloc_pid();
       p.status = proc_status::USED;
@@ -139,7 +138,7 @@ auto alloc_proc() -> struct process * {
       auto opt_frame = vm::kalloc();
       if (!opt_frame.has_value()) {
         free(&p);
-        lock::spin_release(&p.lock);
+        p.lock.release();
         return nullptr;
       }
       p.trapframe = (struct trapframe *)opt_frame.value();
@@ -147,7 +146,7 @@ auto alloc_proc() -> struct process * {
       p.pagetable = alloc_pagetable(p);
       if (p.pagetable == nullptr) {
         free(&p);
-        lock::spin_release(&p.lock);
+        p.lock.release();
         return nullptr;
       }
 
@@ -157,7 +156,7 @@ auto alloc_proc() -> struct process * {
 
       return &p;
     }
-    lock::spin_release(&p.lock);
+    p.lock.release();
   }
   fmt::panic("proc::alloc: no proc");
 
@@ -175,7 +174,7 @@ auto scheduler() -> void {
     auto found{false};
 
     for (p = proc_list; p < &proc_list[NPROC]; ++p) {
-      lock::spin_acquire(&p->lock);
+      p->lock.acquire();
       if (p->status == proc_status::RUNNABLE) {
         p->status = proc_status::RUNNING;
         c->proc = p;
@@ -184,7 +183,7 @@ auto scheduler() -> void {
         c->proc = nullptr;
         found = true;
       }
-      lock::spin_release(&p->lock);
+      p->lock.release();
     }
 
     if (found == false) {
@@ -197,7 +196,7 @@ auto scheduler() -> void {
 auto sched() -> void {
   auto *p = curr_proc();
 
-  if (lock::spin_holding(&p->lock) == false) {
+  if (!p->lock.holding()) {
     fmt::panic("proc::sched: should hold lock");
   }
   if (curr_cpu()->noff != 1) {
@@ -214,16 +213,16 @@ auto sched() -> void {
 
 auto yield() -> void {
   auto *p = curr_proc();
-  lock::spin_acquire(&p->lock);
+  p->lock.acquire();
   p->status = proc_status::RUNNABLE;
   sched();
-  lock::spin_release(&p->lock);
+  p->lock.release();
 }
 
 auto forkret() -> void {
   static bool first{true};
 
-  lock::spin_release(&curr_proc()->lock);
+  curr_proc()->lock.release();
 
   if (first) {
     fs::init(1);
@@ -250,14 +249,14 @@ auto user_init() -> void {
   p->cwd = fs::namei((char *)"/");
   p->status = proc_status::RUNNABLE;
 
-  lock::spin_release(&p->lock);
+  p->lock.release();
 }
 
-auto sleep(void *chan, struct lock::spinlock &lock) -> void {
+auto sleep(void *chan, class lock::spinlock &lock) -> void {
   auto *p = curr_proc();
 
-  lock::spin_acquire(&p->lock);
-  lock::spin_release(&lock);
+  p->lock.acquire();
+  lock.release();
 
   p->chan = chan;
   p->status = proc_status::SLEEPING;
@@ -265,18 +264,18 @@ auto sleep(void *chan, struct lock::spinlock &lock) -> void {
   sched();
 
   p->chan = nullptr;
-  lock::spin_release(&p->lock);
-  lock::spin_acquire(&lock);
+  p->lock.release();
+  lock.acquire();
 }
 
 auto wakeup(void *chan) -> void {
   for (auto &p : proc_list) {
     if (&p != curr_proc()) {
-      lock::spin_acquire(&p.lock);
+      p.lock.acquire();
       if (p.status == proc_status::SLEEPING && p.chan == chan) {
         p.status = proc_status::RUNNABLE;
       }
-      lock::spin_release(&p.lock);
+      p.lock.release();
     }
   }
 }
@@ -292,30 +291,30 @@ auto reparent(struct process &p) -> void {
 
 auto kill(uint32_t pid) -> int {
   for (auto &p : proc_list) {
-    lock::spin_acquire(&p.lock);
+    p.lock.acquire();
     if (p.pid == pid) {
       p.killed = true;
       if (p.status == proc_status::SLEEPING) {
         p.status = proc_status::RUNNABLE;
       }
-      lock::spin_release(&p.lock);
+      p.lock.release();
       return 0;
     }
-    lock::spin_release(&p.lock);
+    p.lock.release();
   }
   return -1;
 }
 
 auto set_killed(struct process *proc) -> void {
-  lock::spin_acquire(&proc->lock);
+  proc->lock.acquire();
   proc->killed = true;
-  lock::spin_release(&proc->lock);
+  proc->lock.release();
 }
 
 auto get_killed(struct process *proc) -> bool {
-  lock::spin_acquire(&proc->lock);
+  proc->lock.acquire();
   auto rs = proc->killed;
-  lock::spin_release(&proc->lock);
+  proc->lock.release();
   return rs;
 }
 
@@ -345,7 +344,7 @@ auto fork() -> int32_t {
 
   if (vm::uvm_copy(p->pagetable, np->pagetable, p->sz) == false) {
     free(np);
-    lock::spin_release(&np->lock);
+    np->lock.release();
     return -1;
   }
   np->sz = p->sz;
@@ -365,15 +364,15 @@ auto fork() -> int32_t {
 
   auto rs = np->pid;
 
-  lock::spin_release(&np->lock);
+  np->lock.release();
 
-  lock::spin_acquire(&wait_lock);
+  wait_lock.acquire();
   np->parent = p;
-  lock::spin_release(&wait_lock);
+  wait_lock.release();
 
-  lock::spin_acquire(&np->lock);
+  np->lock.acquire();
   np->status = proc_status::RUNNABLE;
-  lock::spin_release(&np->lock);
+  np->lock.release();
 
   return static_cast<int32_t>(rs);
 }
@@ -396,23 +395,23 @@ auto exit(int status) -> void {
   log::end_op();
   p->cwd = nullptr;
 
-  lock::spin_acquire(&wait_lock);
+  wait_lock.acquire();
   reparent(*p);
   wakeup(p->parent);
 
-  lock::spin_acquire(&p->lock);
+  p->lock.acquire();
 
   p->xstate = status;
   p->status = proc_status::ZOMBIE;
 
-  lock::spin_release(&wait_lock);
+  wait_lock.release();
 
   sched();
   fmt::panic("proc::exit: zombie exit");
 }
 
 auto wait(uint64_t addr) -> int {
-  lock::spin_acquire(&wait_lock);
+  wait_lock.acquire();
   auto *p = curr_proc();
 
   while (true) {
@@ -420,29 +419,29 @@ auto wait(uint64_t addr) -> int {
 
     for (auto &cp : proc_list) {
       if (cp.parent == p) {
-        lock::spin_acquire(&cp.lock);
+        cp.lock.acquire();
 
         havekids = true;
         if (cp.status == ZOMBIE) {
           auto pid = cp.pid;
           if (addr != 0 && vm::copyout(p->pagetable, addr, (char *)&cp.xstate,
                                        sizeof(cp.xstate)) == false) {
-            lock::spin_release(&cp.lock);
-            lock::spin_release(&wait_lock);
+            cp.lock.release();
+            wait_lock.release();
             return -1;
           }
           free(&cp);
-          lock::spin_release(&cp.lock);
-          lock::spin_release(&wait_lock);
+          cp.lock.release();
+          wait_lock.release();
           return static_cast<int32_t>(pid);
         }
 
-        lock::spin_release(&cp.lock);
+        cp.lock.release();
       }
     }
 
     if (havekids == false || get_killed(p)) {
-      lock::spin_release(&wait_lock);
+      wait_lock.release();
       return -1;
     }
 

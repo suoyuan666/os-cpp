@@ -7,6 +7,7 @@
 
 namespace proc {
 constexpr uint32_t NPROC{64};
+constexpr uint32_t NCPU{8};
 
 struct context {
   uint64_t ra;
@@ -78,7 +79,7 @@ extern struct cpu cpu;
 enum proc_status : char { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 struct process {
-  struct lock::spinlock lock;
+  class lock::spinlock lock{"proc"};
 
   char name[32];
   enum proc_status status;
@@ -106,7 +107,7 @@ auto curr_proc() -> struct process *;
 auto curr_cpu() -> struct cpu *;
 auto alloc_pagetable(struct process &p) -> uint64_t *;
 auto free_pagetable(uint64_t *pagetable, uint64_t sz) -> void;
-auto sleep(void *chan, struct lock::spinlock &lock) -> void;
+auto sleep(void *chan, class lock::spinlock &lock) -> void;
 auto wakeup(void *chan) -> void;
 auto yield() -> void;
 auto scheduler() -> void;

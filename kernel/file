@@ -29,7 +29,7 @@ struct inode {
   uint32_t dev;
   uint32_t inum;
   int ref;
-  struct lock::sleeplock lock;
+  class lock::sleeplock lock{"inode"};
   int valid;
 
   int16_t type;
