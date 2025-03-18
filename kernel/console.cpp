@@ -14,13 +14,13 @@ constexpr uint32_t BACKSPACE{0x100};
 constexpr auto C = [](int x) -> int { return ((x) - '@'); };
 
 struct {
-  struct lock::spinlock lock;
+  class lock::spinlock lock{"cons"};
 
   // input
-  char buf[INPUT_BUF_SIZE];
-  uint32_t r;  // Read index
-  uint32_t w;  // Write index
-  uint32_t e;  // Edit index
+  char buf[INPUT_BUF_SIZE]{};
+  uint32_t r{};  // Read index
+  uint32_t w{};  // Write index
+  uint32_t e{};  // Edit index
 } cons;
 
 auto putc(int c) -> void {
@@ -48,13 +48,13 @@ auto write(bool user_src, uint64_t src, int n) -> int {
 
 auto read(bool user_dst, uint64_t dst, int n) -> int {
   auto target = n;
-  lock::spin_acquire(&cons.lock);
+  cons.lock.acquire();
   while (n > 0) {
     // wait until interrupt handler has put some
     // input into cons.buffer.
     while (cons.r == cons.w) {
       if (proc::get_killed(proc::curr_proc())) {
-        lock::spin_release(&cons.lock);
+        cons.lock.release();
         return -1;
       }
       proc::sleep(&cons.r, cons.lock);
@@ -86,13 +86,13 @@ auto read(bool user_dst, uint64_t dst, int n) -> int {
       break;
     }
   }
-  lock::spin_release(&cons.lock);
+  cons.lock.release();
 
   return target - n;
 }
 
 void intr(int c) {
-  lock::spin_acquire(&cons.lock);
+  cons.lock.acquire();
 
   switch (c) {
     case C('U'):  // Kill line.
@@ -129,12 +129,10 @@ void intr(int c) {
       break;
   }
 
-  lock::spin_release(&cons.lock);
+  cons.lock.release();
 }
 
 auto init() -> void {
-  lock::spin_init(cons.lock, (char*)"cons");
-
   uart::init();
 
   // connect read and write system calls

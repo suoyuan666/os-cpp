@@ -75,16 +75,9 @@ auto bfree(uint32_t dev, uint32_t b) {
 }
 
 struct {
-  struct lock::spinlock lock;
+  class lock::spinlock lock{"itable"};
   struct file::inode inode[fs::NINODE];
 } itable;
-
-auto iinit() -> void {
-  lock::spin_init(itable.lock, (char *)"itable");
-  for (auto &i : itable.inode) {
-    lock::sleep_init(i.lock, (char *)"inode");
-  }
-}
 
 auto iget(uint32_t dev, uint32_t inum) -> struct file::inode *;
 
@@ -122,14 +115,14 @@ auto iupdate(struct file::inode *ip) -> void {
 }
 
 auto iget(uint32_t dev, uint32_t inum) -> struct file::inode * {
-  lock::spin_acquire(&itable.lock);
+  itable.lock.acquire();
 
   struct file::inode *node{};
   auto *rs = &itable.inode[0];
   for (; rs < &itable.inode[NINODE]; ++rs) {
     if (rs->ref > 0 && rs->dev == dev && rs->inum == inum) {
       ++rs->ref;
-      lock::spin_release(&itable.lock);
+      itable.lock.release();
       return rs;
     }
     if (node == nullptr && rs->ref == 0) {
@@ -146,14 +139,14 @@ auto iget(uint32_t dev, uint32_t inum) -> struct file::inode * {
   rs->inum = inum;
   rs->ref = 1;
   rs->valid = 0;
-  lock::spin_release(&itable.lock);
+  itable.lock.release();
   return rs;
 }
 
 auto idup(struct file::inode *ip) -> struct file::inode * {
-  lock::spin_acquire(&itable.lock);
+  itable.lock.acquire();
   ++ip->ref;
-  lock::spin_release(&itable.lock);
+  itable.lock.release();
   return ip;
 }
 
@@ -162,7 +155,7 @@ auto ilock(struct file::inode *ip) -> void {
     fmt::panic("fs::ilock");
   }
 
-  lock::sleep_acquire(ip->lock);
+  ip->lock.acquire();
 
   if (ip->valid == 0) {
     auto *bp = bio::bread(ip->dev, IBLOCK(ip->inum, sb));
@@ -185,32 +178,31 @@ auto ilock(struct file::inode *ip) -> void {
 }
 
 auto iunlock(struct file::inode *ip) -> void {
-  if (ip == nullptr || !lock::sleep_holding(ip->lock) || ip->ref < 1) {
+  if (ip == nullptr || !ip->lock.holding() || ip->ref < 1) {
     fmt::panic("fs::iunlock");
   }
 
-  lock::sleep_release(ip->lock);
+  ip->lock.release();
 }
 
 auto iput(struct file::inode *ip) -> void {
-  lock::spin_acquire(&itable.lock);
+  itable.lock.acquire();
 
   if (ip->ref == 1 && ip->valid && ip->nlink == 0) {
-    lock::sleep_acquire(ip->lock);
-    lock::spin_release(&itable.lock);
+    ip->lock.acquire();
+    itable.lock.release();
 
     itrunc(ip);
     ip->type = 0;
     iupdate(ip);
     ip->valid = 0;
 
-    lock::sleep_release(ip->lock);
-
-    lock::spin_acquire(&itable.lock);
+    ip->lock.release();
+    itable.lock.acquire();
   }
 
   --ip->ref;
-  lock::spin_release(&itable.lock);
+  itable.lock.release();
 }
 
 auto iunlockput(struct file::inode *ip) -> void {

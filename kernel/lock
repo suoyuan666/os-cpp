@@ -7,31 +7,39 @@ struct cpu;
 }  // namespace proc
 
 namespace lock {
-struct spinlock {
-  bool locked;
+class spinlock {
+  bool locked{false};
 
-  char *name;
-  struct proc::cpu *cpu;
+  [[maybe_unused]] const char *name{};
+  struct proc::cpu *cpu{};
+
+ public:
+  spinlock() = default;
+  explicit spinlock(const char *name) : name(name) {};
+
+  auto acquire() -> void;
+  auto release() -> void;
+
+  auto holding() -> bool;
 };
-
-auto spin_init(struct spinlock &lock, char *name) -> void;
-auto spin_acquire(struct spinlock *lk) -> void;
-auto spin_release(struct spinlock *lk) -> void;
-auto spin_holding(struct spinlock *lock) -> bool;
 
 auto push_off() -> void;
 auto pop_off() -> void;
 
-struct sleeplock {
-  bool locked;
-  struct spinlock lk;
+class sleeplock {
+  bool locked{false};
+  class spinlock lk{"sleep lock"};
 
-  char *name;
-  uint32_t pid;
+  [[maybe_unused]] const char *name{};
+  uint32_t pid{0};
+
+ public:
+  sleeplock() = default;
+  explicit sleeplock(const char *name) : name(name) {};
+
+  auto acquire() -> void;
+  auto release() -> void;
+
+  auto holding() -> bool;
 };
-
-auto sleep_init(struct sleeplock &lock, char *name) -> void;
-auto sleep_acquire(struct sleeplock &lock) -> void;
-auto sleep_release(struct sleeplock &lock) -> void;
-auto sleep_holding(struct sleeplock &lock) -> bool;
 }  // namespace lock

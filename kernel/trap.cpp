@@ -20,12 +20,12 @@ extern "C" char trampoline[], uservec[], userret[];
 
 namespace trap {
 
-struct lock::spinlock tickslock;
+class lock::spinlock tickslock{"time"};
 uint32_t ticks;
 
 auto devintr() -> int;
 
-auto init() -> void { lock::spin_init(tickslock, (char *)"time"); }
+auto init() -> void {}
 
 auto inithart() -> void { w_stvec((uint64_t)kernelvec); }
 
@@ -122,10 +122,10 @@ extern "C" auto kerneltrap() -> void {
 
 void clockintr() {
   if (proc::cpuid() == 0) {
-    spin_acquire(&tickslock);
+    tickslock.acquire();
     ticks++;
     proc::wakeup(&ticks);
-    spin_release(&tickslock);
+    tickslock.release();
   }
 
   w_stimecmp(r_time() + 1000000);

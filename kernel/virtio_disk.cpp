@@ -18,26 +18,24 @@ static inline auto R(uint64_t r) -> volatile uint32_t * {
 // #define R(r) ((volatile uint32_t *)(vm::VIRTIO0 + (r)))
 
 static struct disk {
-  struct virtq_desc *desc;
-  struct virtq_avail *avail;
-  struct virtq_used *used;
+  struct virtq_desc *desc{};
+  struct virtq_avail *avail{};
+  struct virtq_used *used{};
 
-  char free[NUM];
-  uint16_t used_idx;
+  char free[NUM]{};
+  uint16_t used_idx{};
 
   struct {
     struct bio::buf *b;
     char status;
-  } info[NUM];
+  } info[NUM]{};
 
-  struct virtio_blk_req ops[NUM];
+  struct virtio_blk_req ops[NUM]{};
 
-  struct lock::spinlock vdisk_lock;
+  class lock::spinlock vdisk_lock{"virtio_disk"};
 } disk;
 
 auto init() -> void {
-  lock::spin_init(disk.vdisk_lock, (char *)"virtio_disk");
-
   if (*R(VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976 ||
       *R(VIRTIO_MMIO_VERSION) != 2 || *R(VIRTIO_MMIO_DEVICE_ID) != 2 ||
       *R(VIRTIO_MMIO_VENDOR_ID) != 0x554d4551) {
@@ -106,7 +104,7 @@ auto init() -> void {
 
   *R(VIRTIO_MMIO_QUEUE_READY) = 0x1;
 
-  for (char & i : disk.free) {
+  for (char &i : disk.free) {
     i = 1;
   }
 
@@ -168,7 +166,7 @@ auto free_chain(int i) -> void {
 auto disk_rw(struct bio::buf *b, bool write) -> void {
   uint64_t sector = b->blockno * (fs::BSIZE / 512);
 
-  lock::spin_acquire(&disk.vdisk_lock);
+  disk.vdisk_lock.acquire();
 
   int idx[3];
   while (true) {
@@ -227,11 +225,11 @@ auto disk_rw(struct bio::buf *b, bool write) -> void {
 
   disk.info[idx[0]].b = 0;
   free_chain(idx[0]);
-  lock::spin_release(&disk.vdisk_lock);
+  disk.vdisk_lock.release();
 }
 
 auto virtio_disk_intr() -> void {
-  spin_acquire(&disk.vdisk_lock);
+  disk.vdisk_lock.acquire();
 
   *R(VIRTIO_MMIO_INTERRUPT_ACK) = *R(VIRTIO_MMIO_INTERRUPT_STATUS) & 0x3U;
 
@@ -252,6 +250,6 @@ auto virtio_disk_intr() -> void {
     disk.used_idx += 1;
   }
 
-  lock::spin_release(&disk.vdisk_lock);
+  disk.vdisk_lock.release();
 }
 }  // namespace virtio_disk

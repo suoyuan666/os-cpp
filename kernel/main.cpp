@@ -13,7 +13,7 @@
 #include "vm"
 
 __attribute__((aligned(16))) char stack0[4096];
-volatile static bool started = false;
+volatile static bool started{false};
 
 auto main() -> void;
 
@@ -75,8 +75,6 @@ auto main() -> void {
     plic::inithart();
     fmt::print_log(fmt::log_level::INFO, "plic init successful\n");
     bio::init();
-    fs::iinit();
-    file::init();
     fmt::print_log(fmt::log_level::INFO, "file system init successful\n");
     virtio_disk::init();
     fmt::print_log(fmt::log_level::INFO, "disk init successful\n");
@@ -84,7 +82,8 @@ auto main() -> void {
     __sync_synchronize();
     started = true;
   } else {
-    while (started == false);
+    while (started == false) {
+    }
     __sync_synchronize();
     fmt::print("hart {} starting\n", proc::cpuid());
     vm::inithart();
