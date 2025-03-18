@@ -1,19 +1,19 @@
 #include <cstdint>
 
 #ifndef ARCH_RISCV
-#include "arch/riscv"
+#include "arch/riscv.h"
 #define ARCH_RISCV
 #endif
 
-#include "fmt"
-#include "lock"
-#include "plic"
-#include "proc"
-#include "syscall"
-#include "trap"
-#include "uart"
-#include "virtio_disk"
-#include "vm"
+#include "fmt.h"
+#include "lock.h"
+#include "plic.h"
+#include "proc.h"
+#include "syscall.h"
+#include "trap.h"
+#include "uart.h"
+#include "virtio_disk.h"
+#include "vm.h"
 
 extern "C" auto kernelvec() -> void;
 extern "C" char trampoline[], uservec[], userret[];

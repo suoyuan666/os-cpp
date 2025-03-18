@@ -1,5 +1,4 @@
-// -*- C++ -*-
-
+#pragma once
 namespace plic {
 auto init() -> void;
 auto inithart() -> void;

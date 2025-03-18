@@ -1,8 +1,7 @@
-// -*- C++ -*-
 #pragma once
 #include <cstdint>
 
-#include "bio"
+#include "bio.h"
 
 namespace virtio_disk {
 //

@@ -1,21 +1,21 @@
-#include "proc"
+#include "proc.h"
 
 #include <cstdint>
 #include <cstring>
 #include <optional>
 
 #ifndef ARCH_RISCV
-#include "arch/riscv"
+#include "arch/riscv.h"
 #define ARCH_RISCV
 #endif
 
-#include "file"
-#include "fmt"
-#include "fs"
-#include "lock"
-#include "log"
-#include "trap"
-#include "vm"
+#include "file.h"
+#include "fmt.h"
+#include "fs.h"
+#include "lock.h"
+#include "log.h"
+#include "trap.h"
+#include "vm.h"
 
 extern "C" char trampoline[];
 extern "C" auto swtch(struct proc::context *, struct proc::context *) -> void;

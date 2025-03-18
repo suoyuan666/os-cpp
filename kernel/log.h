@@ -1,7 +1,6 @@
-// -*- C++ -*-
-
-#include "fs"
-#include "bio"
+#pragma once
+#include "fs.h"
+#include "bio.h"
 #include "kernel/fs"
 
 namespace log {

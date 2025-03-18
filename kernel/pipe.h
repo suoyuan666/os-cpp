@@ -1,8 +1,7 @@
-// -*- C++ -*-
-
+#pragma once
 #include <cstdint>
 
-#include "lock"
+#include "lock.h"
 
 namespace file {
 constexpr uint32_t PIPESIZE{512};

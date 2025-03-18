@@ -1,9 +1,8 @@
-// -*- C++ -*-
 #pragma once
 #include <cstdint>
 
 #include "kernel/fs"
-#include "lock"
+#include "lock.h"
 
 namespace file {
 struct file {

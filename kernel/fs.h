@@ -1,8 +1,7 @@
-// -*- C++ -*-
 #pragma once
 #include <cstdint>
 
-#include "file"
+#include "file.h"
 
 namespace fs {
 constexpr uint8_t ROOTDEV{1};

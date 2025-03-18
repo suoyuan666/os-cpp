@@ -1,5 +1,4 @@
-// -*- C++ -*-
-
+#pragma once
 #include <cstdint>
 
 namespace console {

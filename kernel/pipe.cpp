@@ -1,11 +1,11 @@
-#include "pipe"
+#include "pipe.h"
 
 #include <cstdint>
 
-#include "file"
-#include "lock"
-#include "proc"
-#include "vm"
+#include "file.h"
+#include "lock.h"
+#include "proc.h"
+#include "vm.h"
 
 namespace file {
 auto pipealloc(struct file **f0, struct file **f1) -> int {

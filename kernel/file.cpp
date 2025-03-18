@@ -1,14 +1,14 @@
-#include "file"
+#include "file.h"
 
 #include <cstdint>
 
-#include "fmt"
-#include "fs"
-#include "lock"
-#include "log"
-#include "pipe"
-#include "proc"
-#include "vm"
+#include "fmt.h"
+#include "fs.h"
+#include "lock.h"
+#include "log.h"
+#include "pipe.h"
+#include "proc.h"
+#include "vm.h"
 
 namespace file {
 struct devsw devsw[NDEV];

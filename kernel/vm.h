@@ -1,14 +1,12 @@
-// -*- C++ -*-
 #pragma once
-
 #include <cstdint>
 #include <optional>
 
-#include "fmt"
-#include "lock"
+#include "fmt.h"
+#include "lock.h"
 
 #ifndef ARCH_RISCV
-#include "arch/riscv"
+#include "arch/riscv.h"
 #define ARCH_RISCV
 #endif
 

@@ -1,10 +1,8 @@
-// -*- C++ -*-
-
 #pragma once
 #include <cstdint>
 
 #include "kernel/fs"
-#include "lock"
+#include "lock.h"
 
 namespace bio {
 struct buf {

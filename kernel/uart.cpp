@@ -1,9 +1,9 @@
 #include <cstdint>
+#include <optional>
 
-#include "console"
-#include "lock"
-#include "optional"
-#include "proc"
+#include "console.h"
+#include "lock.h"
+#include "proc.h"
 
 namespace uart {
 constexpr uint64_t RHR{0};

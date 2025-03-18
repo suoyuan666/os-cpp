@@ -1,11 +1,10 @@
-// -*- C++ -*-
 #pragma once
 
 #include <cstdint>
 #include <type_traits>
 
-#include "console"
-#include "lock"
+#include "console.h"
+#include "lock.h"
 
 namespace fmt {
 

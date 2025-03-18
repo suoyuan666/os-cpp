@@ -1,7 +1,7 @@
 #include <cstdint>
 
-#include "proc"
-#include "vm"
+#include "proc.h"
+#include "vm.h"
 
 namespace plic {
 auto init() -> void {

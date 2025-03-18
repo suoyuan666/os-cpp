@@ -1,14 +1,14 @@
-#include "virtio_disk"
+#include "virtio_disk.h"
 
 #include <cstdint>
 #include <cstring>
 
-#include "bio"
-#include "fmt"
-#include "fs"
-#include "lock"
-#include "proc"
-#include "vm"
+#include "bio.h"
+#include "fmt.h"
+#include "fs.h"
+#include "lock.h"
+#include "proc.h"
+#include "vm.h"
 
 namespace virtio_disk {
 static inline auto R(uint64_t r) -> volatile uint32_t * {

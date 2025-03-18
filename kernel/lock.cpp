@@ -1,12 +1,12 @@
-#include "lock"
+#include "lock.h"
 
 #ifndef ARCH_RISCV
-#include "arch/riscv"
+#include "arch/riscv.h"
 #define ARCH_RISCV
 #endif
 
-#include "fmt"
-#include "proc"
+#include "fmt.h"
+#include "proc.h"
 
 namespace lock {
 

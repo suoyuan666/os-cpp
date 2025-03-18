@@ -1,11 +1,11 @@
-#include "console"
+#include "console.h"
 
 #include <cstdint>
 
-#include "file"
-#include "lock"
-#include "proc"
-#include "uart"
+#include "file.h"
+#include "lock.h"
+#include "proc.h"
+#include "uart.h"
 
 namespace console {
 constexpr uint32_t INPUT_BUF_SIZE{128};

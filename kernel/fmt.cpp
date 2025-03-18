@@ -1,7 +1,7 @@
-#include "fmt"
+#include "fmt.h"
 
-#include "console"
-#include "lock"
+#include "console.h"
+#include "lock.h"
 
 namespace fmt {
 auto puts(const char *str) -> void {
