@@ -79,9 +79,6 @@ struct {
   struct file::inode inode[fs::NINODE];
 } itable;
 
-auto iinit() -> void {
-}
-
 auto iget(uint32_t dev, uint32_t inum) -> struct file::inode *;
 
 auto ialloc(uint32_t dev, int16_t type) -> struct file::inode * {

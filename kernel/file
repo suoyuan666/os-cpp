@@ -73,7 +73,6 @@ constexpr uint32_t O_RDWR{0x002};
 constexpr uint32_t O_CREATE{0x200};
 constexpr uint32_t O_TRUNC{0x400};
 
-auto init() -> void;
 auto alloc() -> struct file*;
 auto dup(struct file* f) -> struct file*;
 auto close(struct file* f) -> void;

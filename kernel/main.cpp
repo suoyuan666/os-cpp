@@ -75,8 +75,6 @@ auto main() -> void {
     plic::inithart();
     fmt::print_log(fmt::log_level::INFO, "plic init successful\n");
     bio::init();
-    fs::iinit();
-    file::init();
     fmt::print_log(fmt::log_level::INFO, "file system init successful\n");
     virtio_disk::init();
     fmt::print_log(fmt::log_level::INFO, "disk init successful\n");

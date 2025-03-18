@@ -9,7 +9,6 @@ constexpr uint8_t ROOTDEV{1};
 constexpr uint8_t ROOTINO{1};
 
 auto init(int dev) -> void;
-auto iinit() -> void;
 auto namei(char *path) -> struct file::inode *;
 auto iput(struct file::inode *ip) -> void;
 auto ilock(struct file::inode *ip) -> void;

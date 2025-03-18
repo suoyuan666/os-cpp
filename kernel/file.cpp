@@ -18,8 +18,6 @@ struct {
   struct file file[NFILE];
 } ftable;
 
-auto init() -> void {}
-
 auto alloc() -> struct file* {
   ftable.lock.acquire();
   for (auto& file : ftable.file) {
