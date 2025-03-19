@@ -1,0 +1,13 @@
+// -*- C++ -*-
+#pragma once
+#include <cstdint>
+
+namespace std {
+extern "C" auto memset(void* dest, int ch, uint32_t count) noexcept -> void*;
+auto memmove(void* dest, const void* src, uint32_t count) noexcept -> void*;
+extern "C" auto memcpy(void* dest, const void* src, uint32_t count) -> void*;
+auto strncpy(char* __restrict__ dest, const char* __restrict__ src,
+             uint32_t count) -> char*;
+auto strncmp(const char* lhs, const char* rhs, uint32_t count) -> int;
+auto strlen( const char* str ) -> uint32_t;
+}  // namespace std
