@@ -1,0 +1,42 @@
+// -*- C++ -*-
+#pragma once
+#include <cstdint>
+#include <optional>
+
+namespace std {
+
+template <class T, uint32_t N>
+struct array {
+  T data[N];
+
+  array() = default;
+  static_assert(N > 0, "arrary size should greater than 0");
+
+  auto at(uint32_t index) -> optional<T&> {
+    if (index >= N) {
+      return {};
+    }
+    return {data[index]};
+  }
+  auto at(uint32_t index) const -> const optional<T&> {
+    if (index >= N) {
+      return {};
+    }
+    return {data[index]};
+  }
+
+  auto operator[](uint32_t index) noexcept -> T& { return data[index]; }
+  auto operator[](uint32_t index) const noexcept -> const T& {
+    return data[index];
+  }
+
+  [[nodiscard]] constexpr uint32_t size() const noexcept { return N; }
+  [[nodiscard]] constexpr bool empty() const noexcept { return N == 0; }
+
+  auto begin() noexcept -> T* { return data; }
+  auto begin() const noexcept -> const T* { return data; }
+  auto end() noexcept -> T* { return data + N; }
+  auto end() const noexcept -> const T* { return data + N; }
+};
+
+}  // namespace std

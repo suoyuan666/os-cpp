@@ -1,0 +1,27 @@
+// -*- C++ -*-
+#pragma once
+#include "utils"
+
+namespace std {
+template <class T>
+class optional {
+  bool _has_value{false};
+  union {
+    T _value;
+  };
+
+ public:
+  optional() = default;
+  optional(const T& val) : _has_value(true), _value(val) {};
+  optional(T&& val) : _has_value(true), _value(move(val)) {};
+
+  [[nodiscard]] auto has_value() const -> bool { return _has_value; }
+
+  auto value() -> T& { return _value; }
+  auto value() const -> const T& { return _value; }
+
+  auto value_or(const T& default_value) -> T& {
+    return _has_value ? _value : default_value;
+  }
+};
+}  // namespace std
