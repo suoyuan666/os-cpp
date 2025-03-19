@@ -6,7 +6,7 @@ proc 是 os-cpp 的进程相关的抽象，其中包括进程的结构体抽象�
 enum proc_status : char { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 struct process {
-  struct lock::spinlock lock;   // 用于使用互斥锁防止该进程的信息处于数据竞争的状态
+  class lock::spinlock lock{"proc"};   // 用于使用互斥锁防止该进程的信息处于数据竞争的状态
 
   char name[32];                // 进程的名称
   enum proc_status status;      // 进程的状态，状态种类在上面的 `enum proc_status` 被定义
@@ -34,11 +34,7 @@ struct process {
 
 ```cpp
 auto init() -> void {
-  lock::spin_init(pid_lock, (char *)"next_pid");
-  lock::spin_init(wait_lock, (char *)"wait_lock");
-
   for (auto &proc : proc_list) {
-    lock::spin_init(proc.lock, (char *)"proc");
     proc.status = proc_status::UNUSED;
     proc.kernel_stack =
         vm::KSTACK((int)((uint64_t)&proc - (uint64_t)&proc_list[0]));
@@ -46,7 +42,7 @@ auto init() -> void {
 }
 ```
 
-初始化函数很简单，先初始化两个锁，这两个锁会在之后介绍到，之后遍历进程列表，并初始化每一个锁，并设置好状态和内核栈区的地址。之所以选择了线性遍历的方式，是因为进程列表的个数很小:
+初始化函数很简单，遍历每个进程数组，设置好状态和内核栈区的地址。之所以选择了直接线性遍历的方式，是因为进程列表的个数很小:
 
 ```cpp
 constexpr uint32_t NPROC{64};
