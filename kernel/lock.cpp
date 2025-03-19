@@ -41,7 +41,7 @@ auto spinlock::acquire() -> void {
   if (holding()) {
     fmt::panic("lock::acquire: already holding the lock");
   }
-  while (__sync_lock_test_and_set(&locked, true) != 0) {
+  while (__sync_lock_test_and_set(&locked, true) != false) {
     ;
   }
   __sync_synchronize();
