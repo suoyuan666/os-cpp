@@ -1,15 +1,15 @@
-#include "loader"
+#include "loader.h"
 
 #include <cstdint>
 #include <cstring>
 
-#include "arch/riscv"
-#include "elf"
-#include "file"
-#include "fs"
-#include "log"
-#include "proc"
-#include "vm"
+#include "arch/riscv.h"
+#include "elf.h"
+#include "file.h"
+#include "fs.h"
+#include "log.h"
+#include "proc.h"
+#include "vm.h"
 
 namespace loader {
 auto loadseg(uint64_t *pagetable, uint64_t va, struct file::inode *ip,

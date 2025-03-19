@@ -1,16 +1,19 @@
 #include <cstdint>
 
-#include "arch/riscv"
-#include "bio"
-#include "console"
-#include "file"
-#include "fmt"
-#include "fs"
-#include "plic"
-#include "proc"
-#include "trap"
-#include "virtio_disk"
-#include "vm"
+#ifndef ARCH_RISCV
+#include "arch/riscv.h"
+#define ARCH_RISCV
+#endif
+#include "bio.h"
+#include "console.h"
+#include "file.h"
+#include "fmt.h"
+#include "fs.h"
+#include "plic.h"
+#include "proc.h"
+#include "trap.h"
+#include "virtio_disk.h"
+#include "vm.h"
 
 __attribute__((aligned(16))) char stack0[4096];
 volatile static bool started{false};

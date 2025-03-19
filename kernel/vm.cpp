@@ -1,16 +1,16 @@
-#include "vm"
+#include "vm.h"
 
 #include <cstdint>
 #include <cstring>
 #include <optional>
 
 #ifndef ARCH_RISCV
-#include "arch/riscv"
+#include "arch/riscv.h"
 #define ARCH_RISCV
 #endif
 
-#include "fmt"
-#include "proc"
+#include "fmt.h"
+#include "proc.h"
 
 extern "C" char end[];
 extern "C" char trampoline[];

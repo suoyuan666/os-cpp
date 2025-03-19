@@ -1,17 +1,17 @@
 #include <cstdint>
 #include <cstring>
 
-#include "arch/riscv"
-#include "file"
-#include "fmt"
-#include "fs"
+#include "arch/riscv.h"
+#include "file.h"
+#include "fmt.h"
+#include "fs.h"
 #include "kernel/fs"
-#include "loader"
-#include "log"
-#include "pipe"
-#include "proc"
-#include "syscall"
-#include "vm"
+#include "loader.h"
+#include "log.h"
+#include "pipe.h"
+#include "proc.h"
+#include "syscall.h"
+#include "vm.h"
 
 namespace syscall {
 auto fetch_addr(uint64_t addr, uint64_t *ip) -> bool {

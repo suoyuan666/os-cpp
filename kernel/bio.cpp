@@ -1,10 +1,10 @@
-#include "bio"
+#include "bio.h"
 
 #include <cstdint>
 
-#include "fmt"
-#include "lock"
-#include "virtio_disk"
+#include "fmt.h"
+#include "lock.h"
+#include "virtio_disk.h"
 
 namespace bio {
 

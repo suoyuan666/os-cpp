@@ -1,5 +1,4 @@
-// -*- C++ -*-
-
+#pragma once
 namespace trap {
 auto init() -> void;
 auto inithart() -> void;

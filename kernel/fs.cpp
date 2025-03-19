@@ -3,14 +3,14 @@
 #include <cstdint>
 #include <cstring>
 
-#include "bio"
-#include "file"
-#include "fmt"
-#include "fs"
-#include "lock"
-#include "log"
-#include "proc"
-#include "virtio_disk"
+#include "bio.h"
+#include "file.h"
+#include "fmt.h"
+#include "fs.h"
+#include "lock.h"
+#include "log.h"
+#include "proc.h"
+#include "virtio_disk.h"
 
 namespace fs {
 

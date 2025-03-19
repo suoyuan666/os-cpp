@@ -1,12 +1,12 @@
 #include <cstdint>
 #include <cstring>
 
-#include "bio"
-#include "fmt"
-#include "fs"
+#include "bio.h"
+#include "fmt.h"
+#include "fs.h"
 #include "kernel/fs"
-#include "lock"
-#include "proc"
+#include "lock.h"
+#include "proc.h"
 
 namespace log {
 struct logheader {

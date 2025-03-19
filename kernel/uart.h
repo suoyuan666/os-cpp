@@ -1,5 +1,4 @@
-// -*- C++ -*-
-
+#pragma once
 #include <optional>
 
 namespace uart {

@@ -1,9 +1,8 @@
-// -*- C++ -*-
 #pragma once
 #include <cstdint>
 
-#include "file"
-#include "lock"
+#include "file.h"
+#include "lock.h"
 
 namespace proc {
 constexpr uint32_t NPROC{64};

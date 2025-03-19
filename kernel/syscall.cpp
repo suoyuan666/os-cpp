@@ -1,9 +1,9 @@
-#include "syscall"
+#include "syscall.h"
 
 #include <cstdint>
 
-#include "fmt"
-#include "proc"
+#include "fmt.h"
+#include "proc.h"
 
 namespace syscall {
 
