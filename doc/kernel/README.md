@@ -184,4 +184,5 @@ argv:
 
 ## 内核中各个模块的解释
 
-TODO
+- [proc](./proc.md)
+- [lock](./lock.md)
