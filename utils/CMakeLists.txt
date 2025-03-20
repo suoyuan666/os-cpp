@@ -8,9 +8,9 @@ set(
 
 set(UTILS_EXECUTABLES cat init ls sh)
 
-set (CMAKE_CXX_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64 -nostdlib -nostdlib++ -mcmodel=medany")
-set (CMAKE_C_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64 -nostdlib -mcmodel=medany -fno-stack-protector -fno-pie")
-set (CMAKE_ASM_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64 -nostdlib -nostdlib++")
+set (CMAKE_CXX_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64d -nostdlib -nostdlib++ -mcmodel=medany")
+set (CMAKE_C_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64d -nostdlib -mcmodel=medany -fno-stack-protector -fno-pie")
+set (CMAKE_ASM_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64d -nostdlib -nostdlib++")
 
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-common -nostdlib -Wno-main -fno-builtin-strncpy -fno-builtin-strncmp -fno-builtin-strlen -fno-builtin-memset -fno-builtin-memmove -fno-builtin-memcmp -fno-builtin-log -fno-builtin-bzero -fno-builtin-strchr -fno-builtin-exit -fno-builtin-malloc -fno-builtin-putc -fno-builtin-free -fno-builtin-memcpy -Wno-main -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vprintf")
 

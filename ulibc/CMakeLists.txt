@@ -65,7 +65,7 @@ set(
     ${PROJECT_SOURCE_DIR}/ulibc/arch/riscv64
 )
 
-set (CMAKE_C_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64 -nostdlib -ffreestanding -mcmodel=medany")
+set (CMAKE_C_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64d -nostdlib -ffreestanding -mcmodel=medany")
 
 add_library(${ULIBC_NAME} ${ULIBC_SRC})
 add_library(crt1 ${CRT_SRC})
