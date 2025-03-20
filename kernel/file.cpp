@@ -1,8 +1,8 @@
 #include "file.h"
 
 #include <cstdint>
+#include <fmt>
 
-#include "fmt.h"
 #include "fs.h"
 #include "lock.h"
 #include "log.h"

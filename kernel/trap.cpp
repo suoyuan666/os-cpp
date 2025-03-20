@@ -1,11 +1,11 @@
 #include <cstdint>
+#include <fmt>
 
 #ifndef ARCH_RISCV
 #include "arch/riscv.h"
 #define ARCH_RISCV
 #endif
 
-#include "fmt.h"
 #include "lock.h"
 #include "plic.h"
 #include "proc.h"
@@ -108,7 +108,7 @@ extern "C" auto kerneltrap() -> void {
   }
 
   if ((which_dev = devintr()) == 0) {
-    fmt::print("scause={} sepc=0x{} stval=0x{}\n", scause, r_sepc(), r_stval());
+    fmt::print("scause={} sepc=0x{x} stval=0x{x}\n", scause, r_sepc(), r_stval());
     fmt::panic("trap::kerneltrap");
   }
 

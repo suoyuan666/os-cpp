@@ -2,10 +2,10 @@
 
 #include <cstdint>
 #include <cstring>
+#include <fmt>
 
 #include "bio.h"
 #include "file.h"
-#include "fmt.h"
 #include "fs.h"
 #include "lock.h"
 #include "log.h"

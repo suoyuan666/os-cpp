@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <fmt>
 #include <optional>
 
 #ifndef ARCH_RISCV
@@ -10,7 +11,6 @@
 #endif
 
 #include "file.h"
-#include "fmt.h"
 #include "fs.h"
 #include "lock.h"
 #include "log.h"
@@ -422,7 +422,7 @@ auto wait(uint64_t addr) -> int {
         cp.lock.acquire();
 
         havekids = true;
-        if (cp.status == ZOMBIE) {
+        if (cp.status == proc_status::ZOMBIE) {
           auto pid = cp.pid;
           if (addr != 0 && vm::copyout(p->pagetable, addr, (char *)&cp.xstate,
                                        sizeof(cp.xstate)) == false) {
@@ -452,22 +452,22 @@ auto wait(uint64_t addr) -> int {
 auto dump(struct process &p) -> void {
   fmt::print("pid: {}, name: {} ", p.pid, p.name);
   switch (p.status) {
-    case UNUSED:
+    case proc_status::UNUSED:
       fmt::print("status: UNUSED");
       break;
-    case USED:
+    case proc_status::USED:
       fmt::print("status: USED");
       break;
-    case SLEEPING:
+    case proc_status::SLEEPING:
       fmt::print("status: SLEEPING");
       break;
-    case RUNNABLE:
+    case proc_status::RUNNABLE:
       fmt::print("status: RUNNABLE");
       break;
-    case RUNNING:
+    case proc_status::RUNNING:
       fmt::print("status: RUNNING");
       break;
-    case ZOMBIE:
+    case proc_status::ZOMBIE:
       fmt::print("status: ZOMBIE");
       break;
   }

@@ -75,13 +75,13 @@ struct cpu {
 
 extern struct cpu cpu;
 
-enum proc_status : char { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum class proc_status : char { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 struct process {
   class lock::spinlock lock{"proc"};
 
   char name[32];
-  enum proc_status status;
+  proc_status status;
   uint32_t pid;
   void *chan;
   bool killed;

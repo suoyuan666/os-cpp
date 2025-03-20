@@ -2,9 +2,9 @@
 
 #include <cstdint>
 #include <cstring>
+#include <fmt>
 
 #include "bio.h"
-#include "fmt.h"
 #include "fs.h"
 #include "lock.h"
 #include "proc.h"

@@ -1,9 +1,9 @@
 #include <cstdint>
 #include <cstring>
+#include <fmt>
 
 #include "arch/riscv.h"
 #include "file.h"
-#include "fmt.h"
 #include "fs.h"
 #include "kernel/fs"
 #include "loader.h"
@@ -448,7 +448,7 @@ auto sys_mknod() -> uint64_t {
   int minor = static_cast<int>(get_argu(2));
 
   auto addr = get_argu(0);
-  if (!fetch_str(addr, path, fs::MAXFILE)){
+  if (!fetch_str(addr, path, fs::MAXFILE)) {
     return -1;
   }
   auto *ip = create(path, file::T_DEVICE, major, minor);

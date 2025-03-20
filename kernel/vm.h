@@ -1,8 +1,8 @@
 #pragma once
 #include <cstdint>
+#include <fmt>
 #include <optional>
 
-#include "fmt.h"
 #include "lock.h"
 
 #ifndef ARCH_RISCV
@@ -38,9 +38,9 @@ constexpr uint64_t PLIC{0x0c000000ULL};
 constexpr uint64_t PLIC_PRIORITY{PLIC + 0x0};
 constexpr uint64_t PLIC_PENDING{PLIC + 0x1000};
 
-#define PLIC_SENABLE(hart) (vm::PLIC + 0x2080 + (hart)*0x100)
-#define PLIC_SPRIORITY(hart) (vm::PLIC + 0x201000 + (hart)*0x2000)
-#define PLIC_SCLAIM(hart) (vm::PLIC + 0x201004 + (hart)*0x2000)
+#define PLIC_SENABLE(hart) (vm::PLIC + 0x2080 + (hart) * 0x100)
+#define PLIC_SPRIORITY(hart) (vm::PLIC + 0x201000 + (hart) * 0x2000)
+#define PLIC_SCLAIM(hart) (vm::PLIC + 0x201004 + (hart) * 0x2000)
 
 //
 // static inline auto PLIC_SENABLE(uint64_t hart) -> uint64_t {
@@ -82,8 +82,8 @@ auto uvm_free(uint64_t *pagetable, uint64_t sz) -> void;
 auto uvm_clear(uint64_t *pagetable, uint64_t va) -> void;
 auto uvm_dealloc(uint64_t *pagetable, uint64_t oldsz, uint64_t newsz)
     -> uint64_t;
-auto uvm_alloc(uint64_t *pagetable, uint64_t oldsz, const uint64_t newsz, uint32_t xperm)
-    -> uint64_t;
+auto uvm_alloc(uint64_t *pagetable, uint64_t oldsz, const uint64_t newsz,
+               uint32_t xperm) -> uint64_t;
 auto copyin(uint64_t *pagetable, char *dst, uint64_t srcva, uint64_t len)
     -> bool;
 auto copyout(uint64_t *pagetable, uint64_t dstva, char *src, uint64_t len)

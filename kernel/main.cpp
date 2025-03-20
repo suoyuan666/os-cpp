@@ -4,10 +4,11 @@
 #include "arch/riscv.h"
 #define ARCH_RISCV
 #endif
+#include <fmt>
+
 #include "bio.h"
 #include "console.h"
 #include "file.h"
-#include "fmt.h"
 #include "fs.h"
 #include "plic.h"
 #include "proc.h"
@@ -85,14 +86,12 @@ auto main() -> void {
     __sync_synchronize();
     started = true;
   } else {
-    while (started == false) {
-    }
+    while (started == false);
     __sync_synchronize();
     fmt::print("hart {} starting\n", proc::cpuid());
     vm::inithart();
     trap::inithart();
     plic::inithart();
   }
-
   proc::scheduler();
 }

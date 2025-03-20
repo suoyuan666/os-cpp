@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <fmt>
 #include <optional>
 
 #ifndef ARCH_RISCV
@@ -9,7 +10,6 @@
 #define ARCH_RISCV
 #endif
 
-#include "fmt.h"
 #include "proc.h"
 
 extern "C" char end[];
@@ -256,8 +256,8 @@ auto uvm_free(uint64_t *pagetable, uint64_t sz) -> void {
   free_walk(pagetable);
 }
 
-auto uvm_alloc(uint64_t *pagetable, uint64_t oldsz, const uint64_t newsz, uint32_t xperm)
-    -> uint64_t {
+auto uvm_alloc(uint64_t *pagetable, uint64_t oldsz, const uint64_t newsz,
+               uint32_t xperm) -> uint64_t {
   if (oldsz > newsz) {
     return oldsz;
   }

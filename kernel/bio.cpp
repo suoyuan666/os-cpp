@@ -1,8 +1,10 @@
 #include "bio.h"
 
+#include <array>
 #include <cstdint>
+#include <fmt>
 
-#include "fmt.h"
+#include "kernel/fs"
 #include "lock.h"
 #include "virtio_disk.h"
 
@@ -10,7 +12,8 @@ namespace bio {
 
 struct bcache {
   class lock::spinlock lock{"bcache"};
-  struct buf buf[fs::NBUF];
+  // struct buf buf[fs::NBUF];
+  std::array<struct buf, fs::NBUF> buf{};
   struct buf head;
 } bcache;
 
@@ -18,17 +21,25 @@ auto init() -> void {
   bcache.head.prev = &bcache.head;
   bcache.head.next = &bcache.head;
 
-  for (auto *b = bcache.buf; b < bcache.buf + fs::NBUF; ++b) {
+  for (uint32_t i = 0; i < fs::NBUF; ++i) {
+    auto *b = bcache.buf.at(i);
     b->next = bcache.head.next;
     b->prev = &bcache.head;
     bcache.head.next->prev = b;
     bcache.head.next = b;
   }
+
+  // for (auto *b = bcache.buf; b < bcache.buf + fs::NBUF; ++b) {
+  //   b->next = bcache.head.next;
+  //   b->prev = &bcache.head;
+  //   bcache.head.next->prev = b;
+  //   bcache.head.next = b;
+  // }
 }
 
 auto bget(uint32_t dev, uint32_t blockno) -> struct buf * {
   // if already cached
-  struct buf *rs{};
+  struct buf *rs = nullptr;
 
   bcache.lock.acquire();
 

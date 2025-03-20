@@ -6,7 +6,6 @@ set (
     main.cpp
     uart.cpp
     console.cpp
-    fmt.cpp
     kernelvec.S
     trampoline.S
     swtch.S
