@@ -17,8 +17,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3 -Wall -Wextra -Werror")
-    set(CMAKE_C_FLAGS_DEBUG "-O0 -g3 -Wall -Wextra -Werror")
+    set(CMAKE_CXX_FLAGS_DEBUG "-O2 -g3 -Wall -Wextra -Werror")
+    set(CMAKE_C_FLAGS_DEBUG "-O2 -g3 -Wall -Wextra -Werror")
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
