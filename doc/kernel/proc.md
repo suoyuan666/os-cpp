@@ -3,10 +3,10 @@
 proc 是 os-cpp 的进程相关的抽象，其中包括进程的结构体抽象定义，以及相关的函数，比如 `fork` 之类的。
 
 ```cpp
-enum proc_status : char { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum class proc_status : char { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 struct process {
-  class lock::spinlock lock{"proc"};   // 用于使用互斥锁防止该进程的信息处于数据竞争的状态
+  class lock::spinlock lock{};   // 用于使用互斥锁防止该进程的信息处于数据竞争的状态
 
   char name[32];                // 进程的名称
   enum proc_status status;      // 进程的状态，状态种类在上面的 `enum proc_status` 被定义
