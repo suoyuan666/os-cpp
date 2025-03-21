@@ -26,13 +26,13 @@ static struct disk {
   uint16_t used_idx{};
 
   struct {
-    struct bio::buf *b;
+    class bio::buf *b;
     char status;
   } info[NUM]{};
 
   struct virtio_blk_req ops[NUM]{};
 
-  class lock::spinlock vdisk_lock{"virtio_disk"};
+  class lock::spinlock vdisk_lock{};
 } disk;
 
 auto init() -> void {
@@ -163,7 +163,7 @@ auto free_chain(int i) -> void {
   }
 }
 
-auto disk_rw(struct bio::buf *b, bool write) -> void {
+auto disk_rw(class bio::buf *b, bool write) -> void {
   uint64_t sector = b->blockno * (fs::BSIZE / 512);
 
   disk.vdisk_lock.acquire();

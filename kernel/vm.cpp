@@ -14,14 +14,12 @@
 
 extern "C" char end[];
 extern "C" char trampoline[];
-
-namespace vm {
-
 extern "C" char etext[];
 
+namespace vm {
 uint64_t *kernel_pagetable;
 struct {
-  class lock::spinlock lock{"kmem"};
+  class lock::spinlock lock{};
   struct list *freelist{};
 } kmem{};
 

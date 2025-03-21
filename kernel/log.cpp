@@ -15,7 +15,7 @@ struct logheader {
 };
 
 struct log {
-  class lock::spinlock lock{"log"};
+  class lock::spinlock lock{};
   uint32_t start;
   uint32_t size;
   uint32_t outstanding;  // how many FS sys calls are executing.
@@ -142,7 +142,7 @@ auto end_op() -> void {
   }
 }
 
-auto lwrite(struct bio::buf *b) -> void {
+auto lwrite(class bio::buf *b) -> void {
   log.lock.acquire();
   if (log.lh.n >= static_cast<int>(fs::LOGSIZE) ||
       log.lh.n >= static_cast<int>(log.size) - 1) {

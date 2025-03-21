@@ -38,9 +38,34 @@ constexpr uint64_t PLIC{0x0c000000ULL};
 constexpr uint64_t PLIC_PRIORITY{PLIC + 0x0};
 constexpr uint64_t PLIC_PENDING{PLIC + 0x1000};
 
-#define PLIC_SENABLE(hart) (vm::PLIC + 0x2080 + (hart) * 0x100)
-#define PLIC_SPRIORITY(hart) (vm::PLIC + 0x201000 + (hart) * 0x2000)
-#define PLIC_SCLAIM(hart) (vm::PLIC + 0x201004 + (hart) * 0x2000)
+// #define PLIC_SENABLE(hart) (vm::PLIC + 0x2080 + (hart) * 0x100)
+
+// auto set_plic_senable(uint32_t hart, uint32_t value) -> void {
+//   auto *addr = reinterpret_cast<uint64_t *>(
+//       static_cast<uint64_t>(hart * 0x100) + vm::PLIC + 0x2080);
+//   *addr = value;
+// }
+// #define PLIC_SPRIORITY(hart) (vm::PLIC + 0x201000 + (hart) * 0x2000)
+
+// auto set_plic_spriority(uint32_t hart, uint32_t value) -> void {
+//   auto *addr = reinterpret_cast<uint64_t *>(
+//       static_cast<uint64_t>(hart * 0x2000) + vm::PLIC + 0x201000);
+//   *addr = value;
+// }
+
+// #define PLIC_SCLAIM(hart) (vm::PLIC + 0x201004 + (hart) * 0x2000)
+
+// auto get_plic_sclaim(uint32_t id) -> uint64_t {
+//   auto *addr = reinterpret_cast<uint64_t *>(static_cast<uint64_t>(id * 0x2000) +
+//                                             vm::PLIC + 0x201004);
+//   return *addr;
+// }
+//
+// auto set_plic_sclaim(uint32_t hart, uint32_t value) -> void {
+//   auto *addr = reinterpret_cast<uint64_t *>(
+//       static_cast<uint64_t>(hart * 0x2000) + vm::PLIC + 0x201004);
+//   *addr = value;
+// }
 
 //
 // static inline auto PLIC_SENABLE(uint64_t hart) -> uint64_t {

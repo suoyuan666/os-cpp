@@ -75,7 +75,7 @@ auto bfree(uint32_t dev, uint32_t b) {
 }
 
 struct {
-  class lock::spinlock lock{"itable"};
+  class lock::spinlock lock{};
   struct file::inode inode[fs::NINODE];
 } itable;
 

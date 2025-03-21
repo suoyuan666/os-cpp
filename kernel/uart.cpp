@@ -22,24 +22,26 @@ constexpr uint64_t LSR{5};
 // constexpr uint64_t LSR_RX_READY {1<<0};
 constexpr uint64_t LSR_TX_IDLE{1U << 5U};
 
-class lock::spinlock uart_tx_lock{"uart"};
+class lock::spinlock uart_tx_lock{};
 
 constexpr uint32_t UART_TX_BUF_SIZE{32};
 char uart_tx_buf[UART_TX_BUF_SIZE];
-uint64_t uart_tx_w;
-uint64_t uart_tx_r;
+uint64_t uart_tx_w{0};
+uint64_t uart_tx_r{0};
 
 constexpr uint64_t UART_BASE{0x10000000ULL};
 
-static inline auto reg(const uint64_t offset) -> char* {
+__attribute__((always_inline)) static inline auto reg(const uint64_t offset)
+    -> char* {
   return (char*)(UART_BASE + offset);
 };
 
-static inline auto read_reg(const uint64_t offset) -> char {
+__attribute__((always_inline)) static inline auto read_reg(
+    const uint64_t offset) -> char {
   return *reg(offset);
 };
-static inline auto write_reg(const uint64_t offset, const uint64_t value)
-    -> void {
+__attribute__((always_inline)) static inline auto write_reg(
+    const uint64_t offset, const uint64_t value) -> void {
   *reg(offset) = value;
 };
 
@@ -89,7 +91,9 @@ auto putc(char c) -> void {
 auto kputc(char c) -> void {
   lock::push_off();
 
-  while ((read_reg(LSR) & LSR_TX_IDLE) == 0);
+  while ((read_reg(LSR) & LSR_TX_IDLE) == 0) {
+  }
+  __sync_synchronize();
   write_reg(THR, c);
 
   lock::pop_off();

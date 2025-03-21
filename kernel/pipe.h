@@ -7,7 +7,7 @@ namespace file {
 constexpr uint32_t PIPESIZE{512};
 
 struct pipe {
-  class lock::spinlock lock{"pipe"};
+  class lock::spinlock lock{};
   char data[PIPESIZE];
   uint32_t nread;   // number of bytes read
   uint32_t nwrite;  // number of bytes written

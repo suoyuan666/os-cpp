@@ -43,12 +43,15 @@ struct process *init_proc{};
 struct cpu cpu_list[NCPU];
 uint32_t next_pid{1};
 
-class lock::spinlock wait_lock{"wait_lock"};
-class lock::spinlock pid_lock{"next_pid"};
+class lock::spinlock wait_lock{};
+class lock::spinlock pid_lock{};
 
 auto forkret() -> void;
 
-auto cpuid() -> uint32_t { return r_tp(); }
+auto cpuid() -> uint32_t {
+  auto id = r_tp();
+  return id; 
+}
 auto curr_cpu() -> struct cpu * {
   auto id = cpuid();
   return &cpu_list[id];
@@ -165,15 +168,14 @@ auto alloc_proc() -> struct process * {
 
 auto scheduler() -> void {
   auto *c = curr_cpu();
-  struct process *p = nullptr;
   c->proc = nullptr;
 
   while (true) {
     intr_on();
 
     auto found{false};
-
-    for (p = proc_list; p < &proc_list[NPROC]; ++p) {
+    for (uint32_t i{0}; i < NPROC; ++i) {
+      auto *p = &proc_list[i];
       p->lock.acquire();
       if (p->status == proc_status::RUNNABLE) {
         p->status = proc_status::RUNNING;

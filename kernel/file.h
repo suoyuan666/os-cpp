@@ -28,7 +28,7 @@ struct inode {
   uint32_t dev;
   uint32_t inum;
   int ref;
-  class lock::sleeplock lock{"inode"};
+  class lock::sleeplock lock{};
   int valid;
 
   int16_t type;

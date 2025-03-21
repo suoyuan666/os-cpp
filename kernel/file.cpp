@@ -14,7 +14,7 @@ namespace file {
 struct devsw devsw[NDEV];
 
 struct {
-  class lock::spinlock lock{"ftable"};
+  class lock::spinlock lock{};
   struct file file[NFILE];
 } ftable;
 

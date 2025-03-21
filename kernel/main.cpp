@@ -16,22 +16,15 @@
 #include "virtio_disk.h"
 #include "vm.h"
 
-__attribute__((aligned(16))) char stack0[4096];
+__attribute__((aligned(16))) volatile unsigned char stack0[4096 * proc::NCPU];
 volatile static bool started{false};
 
 auto main() -> void;
 
 auto timerinit() -> void {
-  // enable supervisor-mode timer interrupts.
   w_mie(r_mie() | MIE_STIE);
-
-  // enable the sstc extension (i.e. stimecmp).
   w_menvcfg(r_menvcfg() | (1UL << 63U));
-
-  // allow supervisor to use stimecmp and time.
   w_mcounteren(r_mcounteren() | 2U);
-
-  // ask for the very first timer interrupt.
   w_stimecmp(r_time() + 1000000U);
 }
 
@@ -72,12 +65,9 @@ auto main() -> void {
     fmt::print_log(fmt::log_level::INFO, "vm init successful\n");
     proc::init();
     fmt::print_log(fmt::log_level::INFO, "proc init successful\n");
-    trap::init();
     trap::inithart();
-    fmt::print_log(fmt::log_level::INFO, "trap init successful\n");
     plic::init();
     plic::inithart();
-    fmt::print_log(fmt::log_level::INFO, "plic init successful\n");
     bio::init();
     fmt::print_log(fmt::log_level::INFO, "file system init successful\n");
     virtio_disk::init();

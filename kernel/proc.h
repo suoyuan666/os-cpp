@@ -78,7 +78,7 @@ extern struct cpu cpu;
 enum class proc_status : char { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 struct process {
-  class lock::spinlock lock{"proc"};
+  class lock::spinlock lock{};
 
   char name[32];
   proc_status status;
