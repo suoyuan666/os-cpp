@@ -15,7 +15,7 @@
 - 对于 Debian 来说，应该安装的软件包名是 [qemu-system-misc](https://packages.debian.org/bookworm/qemu-system-misc)
 - 对于 Fedora 来说，应该安装的软件包名是 [qemu-system-riscv](https://packages.fedoraproject.org/pkgs/qemu/qemu-system-riscv/index.html)
 - 对于 Arch Linux 来说，应该安装的软件包名是 [qemu-system-riscv](https://archlinux.org/packages/extra/x86_64/qemu-system-riscv/)
-- 对于 Gentoo Linux 来说，应该给 app-emulation/qemu 的 USE 变量添加一个 `qemu_softmmu_targets_riscv32 qemu_softmmu_targets_riscv64` 重新编译即可
+- 对于 Gentoo Linux 来说，应该给 app-emulation/qemu 的 USE 变量添加一个 `qemu_softmmu_targets_riscv64` 重新编译即可
 
 Debian 的 qemu-system-misc 是把所有支持模拟的架构都装上了，这不太好，但是对于 stable 分支来说，貌似也只能这样，除非你手动编译。Debian 的 tesing 分支有 [qemu-system-riscv](https://packages.debian.org/trixie/qemu-system-riscv)
 
@@ -45,6 +45,8 @@ $ make qemu
 对于 lldb 的话，项目根目录下也存在一个 .lldbinit 文件用于读取
 
 lldb 同样也是默认禁止这些非信任文件夹的 lldbinit 的读取，但是貌似不支持对特定目录的信任，所以我现在暂时运行 `lldb --local-lldbinit` 来读取项目根目录的 .lldbinit
+
+可以运行 `make lldb`，虽然 `make` 并没有帮你做什么，只是附加了 `--local-lldbinit` 启动 lldb，由于我系统的 bash-completion 无法补全这个参数，所以我选择写在 Makefile 里
 
 更多的可以看 [Kernel Debugging](https://wiki.osdev.org/Kernel_Debugging#Using_Debuggers_with_VMs)
 
