@@ -5,7 +5,8 @@
 #define ARCH_RISCV
 #endif
 
-#include "fmt.h"
+#include <fmt>
+
 #include "proc.h"
 
 namespace lock {

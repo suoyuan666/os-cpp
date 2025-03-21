@@ -1,48 +1,52 @@
 #include "bio.h"
 
+#include <array>
 #include <cstdint>
+#include <fmt>
 
-#include "fmt.h"
+#include "kernel/fs"
 #include "lock.h"
 #include "virtio_disk.h"
 
 namespace bio {
 
-struct bcache {
-  class lock::spinlock lock{"bcache"};
-  struct buf buf[fs::NBUF];
-  struct buf head;
-} bcache;
+class bcache {
+ public:
+  class lock::spinlock lock{};
+  class buf buf[fs::NBUF]{};
+  class buf head{};
+} bcache{};
 
 auto init() -> void {
   bcache.head.prev = &bcache.head;
   bcache.head.next = &bcache.head;
 
-  for (auto *b = bcache.buf; b < bcache.buf + fs::NBUF; ++b) {
-    b->next = bcache.head.next;
-    b->prev = &bcache.head;
-    bcache.head.next->prev = b;
-    bcache.head.next = b;
+  for (auto &b : bcache.buf) {
+    b.next = bcache.head.next;
+    b.prev = &bcache.head;
+    bcache.head.next->prev = &b;
+    bcache.head.next = &b;
   }
 }
 
-auto bget(uint32_t dev, uint32_t blockno) -> struct buf * {
-  // if already cached
-  struct buf *rs{};
-
+auto bget(uint32_t dev, uint32_t blockno) -> class buf * {
   bcache.lock.acquire();
 
-  for (rs = bcache.head.next; rs != &bcache.head; rs = rs->next) {
+  // if already cached
+  auto *rs = bcache.head.next;
+  while (rs != &bcache.head) {
     if (rs->dev == dev && rs->blockno == blockno) {
       ++rs->refcnt;
       bcache.lock.release();
       rs->lock.acquire();
       return rs;
     }
+    rs = rs->next;
   }
 
   // no!!! no cache
-  for (rs = bcache.head.next; rs != &bcache.head; rs = rs->next) {
+  rs = bcache.head.next;
+  while (rs != &bcache.head) {
     if (rs->refcnt == 0) {
       rs->dev = dev;
       rs->blockno = blockno;
@@ -52,13 +56,14 @@ auto bget(uint32_t dev, uint32_t blockno) -> struct buf * {
       rs->lock.acquire();
       return rs;
     }
+    rs = rs->next;
   }
 
   fmt::panic("no buffers");
   return rs;
 }
 
-auto bread(uint32_t dev, uint32_t blockno) -> struct buf * {
+auto bread(uint32_t dev, uint32_t blockno) -> class buf * {
   auto *rs = bget(dev, blockno);
   if (!rs->valid) {
     virtio_disk::disk_rw(rs, false);
@@ -67,7 +72,7 @@ auto bread(uint32_t dev, uint32_t blockno) -> struct buf * {
   return rs;
 }
 
-auto brelse(struct buf &b) -> void {
+auto brelse(class buf &b) -> void {
   if (!b.lock.holding()) {
     fmt::panic("bio::brelse: no lock");
   }
@@ -86,20 +91,20 @@ auto brelse(struct buf &b) -> void {
   bcache.lock.release();
 }
 
-auto bwrite(struct buf *buf) -> void {
+auto bwrite(class buf *buf) -> void {
   if (!buf->lock.holding()) {
     fmt::panic("bio::bwrite: no lock");
   }
   virtio_disk::disk_rw(buf, true);
 }
 
-auto bpin(struct buf *buf) -> void {
+auto bpin(class buf *buf) -> void {
   bcache.lock.acquire();
   ++buf->refcnt;
   bcache.lock.release();
 }
 
-auto bupin(struct buf *buf) -> void {
+auto bupin(class buf *buf) -> void {
   bcache.lock.acquire();
   --buf->refcnt;
   bcache.lock.release();

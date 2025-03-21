@@ -5,23 +5,24 @@
 #include "lock.h"
 
 namespace bio {
-struct buf {
-  int valid{};  // has data been read from disk?
-  int disk{};   // does disk "own" buf?
-  uint32_t dev{};
-  uint32_t blockno{};
-  class lock::sleeplock lock{"buffer"};
-  uint32_t refcnt{};
-  struct buf *prev{};  // LRU cache list
-  struct buf *next{};
-  unsigned char data[fs::BSIZE]{};
+class buf {
+ public:
+  int valid{0};  // has data been read from disk?
+  int disk{0};   // does disk "own" buf?
+  uint32_t dev{0};
+  uint32_t blockno{0};
+  uint32_t refcnt{0};
+  class lock::sleeplock lock{};
+  class buf *prev{nullptr};  // LRU cache list
+  class buf *next{nullptr};
+  unsigned char data[fs::BSIZE]{0};
 };
 
 auto init() -> void;
-auto bread(uint32_t dev, uint32_t blockno) -> struct buf *;
-auto bget(uint32_t dev, uint32_t blockno) -> struct buf *;
-auto brelse(struct buf &b) -> void;
-auto bwrite(struct bio::buf *buf) -> void;
-auto bpin(struct buf *buf) -> void;
-auto bupin(struct bio::buf *buf) -> void;
+auto bread(uint32_t dev, uint32_t blockno) -> class buf *;
+auto bget(uint32_t dev, uint32_t blockno) -> class buf *;
+auto brelse(class buf &b) -> void;
+auto bwrite(class buf *buf) -> void;
+auto bpin(class buf *buf) -> void;
+auto bupin(class buf *buf) -> void;
 }  // namespace bio

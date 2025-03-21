@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "fmt.h"
+#include <fmt>
 #include "proc.h"
 
 namespace syscall {

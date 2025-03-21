@@ -14,14 +14,14 @@ constexpr uint32_t BACKSPACE{0x100};
 constexpr auto C = [](int x) -> int { return ((x) - '@'); };
 
 struct {
-  class lock::spinlock lock{"cons"};
+  class lock::spinlock lock{};
 
   // input
   char buf[INPUT_BUF_SIZE]{};
   uint32_t r{};  // Read index
   uint32_t w{};  // Write index
   uint32_t e{};  // Edit index
-} cons;
+} cons{};
 
 auto putc(int c) -> void {
   if (c == BACKSPACE) {

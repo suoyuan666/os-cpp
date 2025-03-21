@@ -12,7 +12,7 @@ set(
     ${PROJECT_SOURCE_DIR}/kernel/include
 )
 
-set (CMAKE_CXX_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64 -nostdlib -nostdlib++ -ffreestanding -mcmodel=medany -fno-rtti -fno-exceptions -fno-stack-protector -fno-pie")
+set (CMAKE_CXX_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64d -nostdlib -nostdlib++ -ffreestanding -mcmodel=medany -fno-rtti -fno-exceptions -fno-stack-protector -fno-pie")
 
 add_library(${ULIBCXX_NAME} ${ULIBCXX_SRC})
 

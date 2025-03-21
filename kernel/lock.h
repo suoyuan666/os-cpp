@@ -9,12 +9,10 @@ namespace lock {
 class spinlock {
   bool locked{false};
 
-  [[maybe_unused]] const char *name{};
-  struct proc::cpu *cpu{};
+  struct proc::cpu *cpu{nullptr};
 
  public:
   spinlock() = default;
-  explicit spinlock(const char *name) : name(name) {};
 
   auto acquire() -> void;
   auto release() -> void;
@@ -27,14 +25,12 @@ auto pop_off() -> void;
 
 class sleeplock {
   bool locked{false};
-  class spinlock lk{"sleep lock"};
+  class spinlock lk{};
 
-  [[maybe_unused]] const char *name{};
   uint32_t pid{0};
 
  public:
   sleeplock() = default;
-  explicit sleeplock(const char *name) : name(name) {};
 
   auto acquire() -> void;
   auto release() -> void;

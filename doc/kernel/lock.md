@@ -1,6 +1,6 @@
 # lock
 
-锁是并发中不得不提的概念，因为并发运行的是否总会面对对一些重要的资源的竞争问题，所以引入了锁来解决它。
+锁是并发中不得不提的概念。在并发运行的情况下，我们总会面对要访问资源时候的竞争问题，所以引入了锁来解决它。
 
 > 对于锁本身的概念，可以参考 [WikiPedia](https://en.wikipedia.org/wiki/Lock_(computer_science))
 
@@ -26,7 +26,6 @@ os-cpp 目前有两种锁—— spin lock 和 sleep lock
 class spinlock {
   bool locked{false};
 
-  [[maybe_unused]] const char *name{};
   struct proc::cpu *cpu{};
 
  public:
@@ -39,8 +38,6 @@ class spinlock {
   auto holding() -> bool;
 };
 ```
-
-> `[[maybe_unused]]` 表明该变量不被使用，后续会选择把它改成在调试模式下才生效
 
 自旋锁持有的对象不多，一个表示状态的 bool 变量，一个字符串，一个表示持有锁 CPU 的指针。
 
@@ -111,9 +108,8 @@ auto spinlock::acquire() -> void {
 ```cpp
 class sleeplock {
   bool locked{false};
-  class spinlock lk{"sleep lock"};
+  class spinlock lk{};
 
-  [[maybe_unused]] const char *name{};
   uint32_t pid{0};
 
  public:

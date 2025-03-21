@@ -2,10 +2,10 @@
 
 #include <cstdint>
 #include <cstring>
+#include <fmt>
 
 #include "bio.h"
 #include "file.h"
-#include "fmt.h"
 #include "fs.h"
 #include "lock.h"
 #include "log.h"
@@ -75,7 +75,7 @@ auto bfree(uint32_t dev, uint32_t b) {
 }
 
 struct {
-  class lock::spinlock lock{"itable"};
+  class lock::spinlock lock{};
   struct file::inode inode[fs::NINODE];
 } itable;
 

@@ -103,6 +103,6 @@ struct virtio_blk_req {
 };
 
 auto init() -> void;
-auto disk_rw(struct bio::buf *b, bool write) -> void;
+auto disk_rw(class bio::buf *b, bool write) -> void;
 auto virtio_disk_intr() -> void;
 }  // namespace virtio_disk

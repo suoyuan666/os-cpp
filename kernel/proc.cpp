@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <fmt>
 #include <optional>
 
 #ifndef ARCH_RISCV
@@ -10,7 +11,6 @@
 #endif
 
 #include "file.h"
-#include "fmt.h"
 #include "fs.h"
 #include "lock.h"
 #include "log.h"
@@ -43,12 +43,15 @@ struct process *init_proc{};
 struct cpu cpu_list[NCPU];
 uint32_t next_pid{1};
 
-class lock::spinlock wait_lock{"wait_lock"};
-class lock::spinlock pid_lock{"next_pid"};
+class lock::spinlock wait_lock{};
+class lock::spinlock pid_lock{};
 
 auto forkret() -> void;
 
-auto cpuid() -> uint32_t { return r_tp(); }
+auto cpuid() -> uint32_t {
+  auto id = r_tp();
+  return id; 
+}
 auto curr_cpu() -> struct cpu * {
   auto id = cpuid();
   return &cpu_list[id];
@@ -165,15 +168,14 @@ auto alloc_proc() -> struct process * {
 
 auto scheduler() -> void {
   auto *c = curr_cpu();
-  struct process *p = nullptr;
   c->proc = nullptr;
 
   while (true) {
     intr_on();
 
     auto found{false};
-
-    for (p = proc_list; p < &proc_list[NPROC]; ++p) {
+    for (uint32_t i{0}; i < NPROC; ++i) {
+      auto *p = &proc_list[i];
       p->lock.acquire();
       if (p->status == proc_status::RUNNABLE) {
         p->status = proc_status::RUNNING;
@@ -422,7 +424,7 @@ auto wait(uint64_t addr) -> int {
         cp.lock.acquire();
 
         havekids = true;
-        if (cp.status == ZOMBIE) {
+        if (cp.status == proc_status::ZOMBIE) {
           auto pid = cp.pid;
           if (addr != 0 && vm::copyout(p->pagetable, addr, (char *)&cp.xstate,
                                        sizeof(cp.xstate)) == false) {
@@ -452,22 +454,22 @@ auto wait(uint64_t addr) -> int {
 auto dump(struct process &p) -> void {
   fmt::print("pid: {}, name: {} ", p.pid, p.name);
   switch (p.status) {
-    case UNUSED:
+    case proc_status::UNUSED:
       fmt::print("status: UNUSED");
       break;
-    case USED:
+    case proc_status::USED:
       fmt::print("status: USED");
       break;
-    case SLEEPING:
+    case proc_status::SLEEPING:
       fmt::print("status: SLEEPING");
       break;
-    case RUNNABLE:
+    case proc_status::RUNNABLE:
       fmt::print("status: RUNNABLE");
       break;
-    case RUNNING:
+    case proc_status::RUNNING:
       fmt::print("status: RUNNING");
       break;
-    case ZOMBIE:
+    case proc_status::ZOMBIE:
       fmt::print("status: ZOMBIE");
       break;
   }

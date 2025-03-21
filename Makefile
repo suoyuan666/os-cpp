@@ -9,7 +9,7 @@ UPROGS=\
 	$U/cat  \
 	$U/ls  \
 
-CPUS = 1
+CPUS = 3
 
 QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 512M -smp $(CPUS) -nographic
 QEMUOPTS += -global virtio-mmio.force-legacy=false
@@ -25,3 +25,6 @@ qemu: fs.img
 qemu-gdb: fs.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -s -S 
+
+lldb: fs.img
+	lldb --local-lldbinit

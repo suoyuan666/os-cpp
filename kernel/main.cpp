@@ -4,10 +4,11 @@
 #include "arch/riscv.h"
 #define ARCH_RISCV
 #endif
+#include <fmt>
+
 #include "bio.h"
 #include "console.h"
 #include "file.h"
-#include "fmt.h"
 #include "fs.h"
 #include "plic.h"
 #include "proc.h"
@@ -15,22 +16,15 @@
 #include "virtio_disk.h"
 #include "vm.h"
 
-__attribute__((aligned(16))) char stack0[4096];
+__attribute__((aligned(16))) volatile unsigned char stack0[4096 * proc::NCPU];
 volatile static bool started{false};
 
 auto main() -> void;
 
 auto timerinit() -> void {
-  // enable supervisor-mode timer interrupts.
   w_mie(r_mie() | MIE_STIE);
-
-  // enable the sstc extension (i.e. stimecmp).
   w_menvcfg(r_menvcfg() | (1UL << 63U));
-
-  // allow supervisor to use stimecmp and time.
   w_mcounteren(r_mcounteren() | 2U);
-
-  // ask for the very first timer interrupt.
   w_stimecmp(r_time() + 1000000U);
 }
 
@@ -71,12 +65,9 @@ auto main() -> void {
     fmt::print_log(fmt::log_level::INFO, "vm init successful\n");
     proc::init();
     fmt::print_log(fmt::log_level::INFO, "proc init successful\n");
-    trap::init();
     trap::inithart();
-    fmt::print_log(fmt::log_level::INFO, "trap init successful\n");
     plic::init();
     plic::inithart();
-    fmt::print_log(fmt::log_level::INFO, "plic init successful\n");
     bio::init();
     fmt::print_log(fmt::log_level::INFO, "file system init successful\n");
     virtio_disk::init();
@@ -85,14 +76,12 @@ auto main() -> void {
     __sync_synchronize();
     started = true;
   } else {
-    while (started == false) {
-    }
+    while (started == false);
     __sync_synchronize();
     fmt::print("hart {} starting\n", proc::cpuid());
     vm::inithart();
     trap::inithart();
     plic::inithart();
   }
-
   proc::scheduler();
 }

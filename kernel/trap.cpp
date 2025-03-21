@@ -1,11 +1,11 @@
 #include <cstdint>
+#include <fmt>
 
 #ifndef ARCH_RISCV
 #include "arch/riscv.h"
 #define ARCH_RISCV
 #endif
 
-#include "fmt.h"
 #include "lock.h"
 #include "plic.h"
 #include "proc.h"
@@ -20,12 +20,10 @@ extern "C" char trampoline[], uservec[], userret[];
 
 namespace trap {
 
-class lock::spinlock tickslock{"time"};
+class lock::spinlock tickslock{};
 uint32_t ticks;
 
 auto devintr() -> int;
-
-auto init() -> void {}
 
 auto inithart() -> void { w_stvec((uint64_t)kernelvec); }
 
@@ -95,24 +93,26 @@ auto user_ret() -> void {
 }
 
 extern "C" auto kerneltrap() -> void {
-  int which_dev = 0;
-  uint64_t sepc = r_sepc();
-  uint64_t sstatus = r_sstatus();
-  uint64_t scause = r_scause();
-
-  if ((sstatus & SSTATUS_SPP) == 0) {
-    fmt::panic("kerneltrap: not from supervisor mode");
-  }
   if (intr_get() != 0) {
     fmt::panic("kerneltrap: interrupts enabled");
   }
 
-  if ((which_dev = devintr()) == 0) {
-    fmt::print("scause={} sepc=0x{} stval=0x{}\n", scause, r_sepc(), r_stval());
+  auto sepc = r_sepc();
+  auto sstatus = r_sstatus();
+  auto scause = r_scause();
+
+  if ((sstatus & SSTATUS_SPP) == 0) {
+    fmt::panic("kerneltrap: not from supervisor mode");
+  }
+
+  volatile auto dev = devintr();
+  if (dev == 0) {
+    fmt::print("scause={} sepc=0x{x} stval=0x{x}\n", scause, r_sepc(),
+               r_stval());
     fmt::panic("trap::kerneltrap");
   }
 
-  if (which_dev == 2 && proc::curr_proc() != nullptr) {
+  if (dev == 2 && proc::curr_proc() != nullptr) {
     proc::yield();
   }
 

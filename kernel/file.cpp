@@ -1,8 +1,8 @@
 #include "file.h"
 
 #include <cstdint>
+#include <fmt>
 
-#include "fmt.h"
 #include "fs.h"
 #include "lock.h"
 #include "log.h"
@@ -14,7 +14,7 @@ namespace file {
 struct devsw devsw[NDEV];
 
 struct {
-  class lock::spinlock lock{"ftable"};
+  class lock::spinlock lock{};
   struct file file[NFILE];
 } ftable;
 
