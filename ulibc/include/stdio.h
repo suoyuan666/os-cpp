@@ -27,6 +27,19 @@ char *fgets(char *__restrict, int, FILE *__restrict);
 char *gets(char *);
 char *gets_s(char *, uint32_t);
 
+size_t fread(void *__restrict, size_t, size_t, FILE *__restrict);
+size_t fwrite(const void *__restrict, size_t, size_t, FILE *__restrict);
+
+int getchar(void);
+int ungetc(int, FILE *);
+
+int fputc(int, FILE *);
+int putc(int, FILE *);
+int putchar(int);
+
+int fputs(const char *__restrict, FILE *__restrict);
+int puts(const char *);
+
 extern hidden FILE __stdout_FILE;
 extern hidden FILE __stdout_FILE;
 
