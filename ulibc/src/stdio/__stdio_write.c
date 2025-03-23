@@ -12,7 +12,7 @@ size_t __stdio_write(FILE *f, const unsigned char *buf, size_t len) {
     return len;
   }
   if (cnt < 0) {
-    f->wpos = f->wbase = f->wend = 0;
+    f->wpos = f->wbase = f->wend = nullptr;
     f->flags |= F_ERR;
     return 0;
   }

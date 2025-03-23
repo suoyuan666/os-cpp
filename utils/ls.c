@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
 
 char *fmtname(char *path) {
   static char buf[DIRSIZ + 1];
-  char *p = NULL;
+  char *p = nullptr;
 
   for (p = path + strlen(path); p >= path && *p != '/'; p--);
   p++;
@@ -35,7 +35,7 @@ char *fmtname(char *path) {
 }
 
 void ls(char *path) {
-  int fd = open(path, O_RDONLY);
+  auto fd = open(path, O_RDONLY);
   if (fd < 0) {
     printf("ls: cannot open %s\n", path);
     exit(1);
@@ -49,7 +49,7 @@ void ls(char *path) {
   }
 
   char buf[512];
-  char *p = NULL;
+  char *p = nullptr;
   struct dirent de;
 
   switch (st.type) {
@@ -67,7 +67,9 @@ void ls(char *path) {
       p = buf + strlen(buf);
       *p++ = '/';
       while (read(fd, &de, sizeof(de)) == sizeof(de)) {
-        if (de.inum == 0) continue;
+        if (de.inum == 0) {
+          continue;
+        }
         memmove(p, de.name, DIRSIZ);
         p[DIRSIZ] = 0;
         if (stat(buf, &st) < 0) {

@@ -12,7 +12,7 @@ int main() {
   }
   dup(0);  // stdout
   dup(0);  // stderr
-  printf("init process start\n\n");
+  printf("\ninit process start\n\n");
   if (fork() == 0) {
     execve("sh", argv, NULL);
   }

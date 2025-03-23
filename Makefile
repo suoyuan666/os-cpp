@@ -8,8 +8,9 @@ UPROGS=\
 	$U/sh \
 	$U/cat  \
 	$U/ls  \
+	$U/test \
 
-CPUS = 3
+CPUS = 1
 
 QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 512M -smp $(CPUS) -nographic
 QEMUOPTS += -global virtio-mmio.force-legacy=false
