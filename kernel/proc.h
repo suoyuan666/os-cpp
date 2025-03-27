@@ -7,6 +7,7 @@
 namespace proc {
 constexpr uint32_t NPROC{64};
 constexpr uint32_t NCPU{8};
+constexpr uint32_t ROOT_ID{0};
 
 struct context {
   uint64_t ra;
@@ -66,6 +67,12 @@ struct trapframe {
   /* 280 */ uint64_t t6;
 };
 
+struct user {
+  uint32_t uid{0};
+  uint32_t gid{0};
+  class lock::spinlock lock{};
+};
+
 struct cpu {
   struct process *proc;
   struct context context;
@@ -86,6 +93,7 @@ struct process {
   void *chan;
   bool killed;
   int xstate;
+  struct user::user *user;
 
   struct process *parent;
 

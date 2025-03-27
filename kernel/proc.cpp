@@ -47,6 +47,7 @@ struct process proc_list[NPROC];
 struct process *init_proc{};
 struct cpu cpu_list[NCPU];
 uint32_t next_pid{1};
+user root;
 
 class lock::spinlock wait_lock{};
 class lock::spinlock pid_lock{};
@@ -69,6 +70,8 @@ auto init() -> void {
     proc.kernel_stack =
         vm::KSTACK((int)((uint64_t)&proc - (uint64_t)&proc_list[0]));
   }
+  root.gid = ROOT_ID;
+  root.uid = ROOT_ID;
 }
 
 auto map_stack(uint64_t *kpt) -> void {
@@ -237,6 +240,7 @@ auto forkret() -> void {
                    "the root file system init successful\n");
     first = false;
     __sync_synchronize();
+    curr_proc()->user = &root;
   }
 
   trap::user_ret();
@@ -355,10 +359,9 @@ auto fork() -> int32_t {
     return -1;
   }
   np->sz = p->sz;
-
   *(np->trapframe) = *(p->trapframe);
-
   np->trapframe->a0 = 0;
+  np->user = p->user;
 
   for (uint32_t i{0}; i < file::NOFILE; ++i) {
     if (p->ofile[i] != nullptr) {

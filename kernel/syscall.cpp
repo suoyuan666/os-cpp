@@ -28,13 +28,15 @@ extern auto sys_unlink() -> uint64_t;
 extern auto sys_link() -> uint64_t;
 extern auto sys_mkdir() -> uint64_t;
 extern auto sys_close() -> uint64_t;
+extern auto sys_setuid() -> uint64_t;
+extern auto sys_setgid() -> uint64_t;
 
 
 static uint64_t (*syscalls[])(void) = {
     sys_fork,  sys_exit,   sys_wait,  sys_pipe,  sys_read,   sys_kill,
     sys_exec,  sys_fstat,  sys_chdir, sys_dup,   sys_getpid, sys_sbrk,
     sys_sleep, sys_uptime, sys_open,  sys_write, sys_mknod,  sys_unlink,
-    sys_link,  sys_mkdir,  sys_close,
+    sys_link,  sys_mkdir,  sys_close, sys_setuid, sys_setgid,
 };
 
 auto syscall() -> void {

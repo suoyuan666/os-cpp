@@ -492,4 +492,21 @@ auto sys_close() -> uint64_t {
   return 0;
 }
 
+auto sys_setuid() -> uint64_t {
+  auto id = static_cast<uint32_t>(get_argu(0));
+  auto *p = proc::curr_proc();
+  p->user->lock.acquire();
+  p->user->uid = id;
+  p->user->lock.release();
+  return 0;
+}
+auto sys_setgid() -> uint64_t {
+  auto id = static_cast<uint32_t>(get_argu(0));
+  auto *p = proc::curr_proc();
+  p->user->lock.acquire();
+  p->user->gid = id;
+  p->user->lock.release();
+  return 0;
+}
+
 }  // namespace syscall
