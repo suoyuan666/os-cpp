@@ -50,6 +50,8 @@ set (
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/fork.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/read.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/sbrk.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/setuid.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/setgid.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/write.c
 )
 

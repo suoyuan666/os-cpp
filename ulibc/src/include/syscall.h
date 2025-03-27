@@ -29,6 +29,8 @@ typedef long syscall_arg_t;
 #define SYS_link 18
 #define SYS_mkdir 29
 #define SYS_close 20
+#define SYS_setuid 21
+#define SYS_setgid 22
 
 hidden long __syscall_ret(unsigned long),
     __syscall_cp(syscall_arg_t, syscall_arg_t, syscall_arg_t, syscall_arg_t,

@@ -13,3 +13,6 @@ pid_t fork(void);
 int execve(const char *, char *const [], char *const []);
 
 void *sbrk(int);
+
+int setuid(uid_t);
+int setgid(gid_t);
