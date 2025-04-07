@@ -55,7 +55,7 @@ void ls(char *path) {
   switch (st.type) {
     case T_DEVICE:
     case T_FILE:
-      printf("%s %d %d %d\n", fmtname(path), st.type, st.ino, (int)st.size);
+      printf("%d %d %d %s\n", st.type, st.ino, (int)st.size, fmtname(path));
       break;
 
     case T_DIR:
@@ -77,7 +77,25 @@ void ls(char *path) {
           continue;
         }
         const char *name = fmtname(buf);
-        printf("%s %d %d %d\n", name, st.type, st.ino, (int)st.size);
+
+        if (de.mask_user & (1U << 2U)) {
+          printf("r");
+        } else {
+          printf(" ");
+        }
+        if (de.mask_user & (1U << 1U)) {
+          printf("w");
+        } else {
+          printf(" ");
+        }
+        if (de.mask_user & 1U) {
+          printf("x");
+        } else {
+          printf(" ");
+        }
+
+        printf(" %d %d %d %d %d %s\n", de.uid, de.gid, st.type, st.ino,
+               (int)st.size, name);
       }
       break;
   }

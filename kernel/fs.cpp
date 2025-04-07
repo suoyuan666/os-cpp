@@ -85,6 +85,13 @@ auto ialloc(uint32_t dev, int16_t type) -> struct file::inode * {
   for (uint32_t inum = 1; inum < sb.ninodes; ++inum) {
     auto *bp = bio::bread(dev, IBLOCK(inum, sb));
     auto *dip = (struct dinode *)bp->data + inum % IPB;
+    auto *p = proc::curr_proc();
+
+    dip->uid = p->user->uid;
+    dip->gid = p->user->gid;
+    dip->mask_user = static_cast<char>(0x110);
+    dip->mask_group = static_cast<char>(0x110);
+    dip->mask_other = static_cast<char>(0x110);
     if (dip->type == 0) {
       std::memset(dip, 0, sizeof(*dip));
       dip->type = type;
@@ -108,6 +115,11 @@ auto iupdate(struct file::inode *ip) -> void {
   dip->minor = ip->minor;
   dip->nlink = ip->nlink;
   dip->size = ip->size;
+  dip->uid = ip->uid;
+  dip->gid = ip->gid;
+  dip->mask_user = ip->mask_user;
+  dip->mask_group = ip->mask_group;
+  dip->mask_other = ip->mask_other;
 
   std::memmove(dip->addrs, ip->addrs, sizeof(ip->addrs));
   log::lwrite(bp);
@@ -166,6 +178,11 @@ auto ilock(struct file::inode *ip) -> void {
     ip->minor = dip->minor;
     ip->nlink = dip->nlink;
     ip->size = dip->size;
+    ip->uid = dip->uid;
+    ip->gid = dip->gid;
+    ip->mask_user = dip->mask_user;
+    ip->mask_group = dip->mask_group;
+    ip->mask_other = dip->mask_other;
 
     std::memmove(ip->addrs, dip->addrs, sizeof(ip->addrs));
 

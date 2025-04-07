@@ -1,5 +1,6 @@
 #include "proc.h"
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <fmt>
@@ -47,7 +48,13 @@ struct process proc_list[NPROC];
 struct process *init_proc{};
 struct cpu cpu_list[NCPU];
 uint32_t next_pid{1};
-user root;
+struct user root;
+
+struct user_list{
+  struct user user;
+  bool enable{false};
+};
+std::array<user_list, NPROC> user_list;
 
 class lock::spinlock wait_lock{};
 class lock::spinlock pid_lock{};
@@ -240,7 +247,6 @@ auto forkret() -> void {
                    "the root file system init successful\n");
     first = false;
     __sync_synchronize();
-    curr_proc()->user = &root;
   }
 
   trap::user_ret();
@@ -255,6 +261,7 @@ auto user_init() -> void {
 
   p->trapframe->epc = 0;
   p->trapframe->sp = PGSIZE;
+  p->user = &root;
 
   std::strncpy(p->name, "initcode", sizeof(p->name));
   p->cwd = fs::namei((char *)"/");

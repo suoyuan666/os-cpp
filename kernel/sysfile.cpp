@@ -428,6 +428,7 @@ auto sys_open() -> uint64_t {
 
   return fd;
 }
+
 auto sys_write() -> uint64_t {
   uint64_t addr = get_argu(1);
   int size = static_cast<int>(get_argu(2));

@@ -125,12 +125,22 @@ auto main(int argc, char *argv[]) -> int {
   {
     struct fs::dirent de{};
     de.inum = xshort(rootino);
+    de.uid = xint(0);
+    de.gid = xint(0);
+    de.mask_user = static_cast<char>(6);
+    de.mask_group = static_cast<char>(6);
+    de.mask_other = static_cast<char>(2);
     strcpy(de.name, ".");
     iappend(fs, rootino, &de, sizeof(de));
   }
   {
     struct fs::dirent de{};
     de.inum = xshort(rootino);
+    de.uid = xint(0);
+    de.gid = xint(0);
+    de.mask_user = static_cast<char>(7);
+    de.mask_group = static_cast<char>(7);
+    de.mask_other = static_cast<char>(2);
     strcpy(de.name, "..");
     iappend(fs, rootino, &de, sizeof(de));
   }
@@ -141,6 +151,11 @@ auto main(int argc, char *argv[]) -> int {
     root_dir_id.at(i) = ialloc(fs, fs::T_DIR);
     struct fs::dirent de{};
     de.inum = xshort(root_dir_id.at(i));
+    de.uid = xint(0);
+    de.gid = xint(0);
+    de.mask_user = static_cast<char>(7);
+    de.mask_group = static_cast<char>(7);
+    de.mask_other = static_cast<char>(2);
     strcpy(de.name, root_dir_name.at(i).begin());
     iappend(fs, rootino, &de, sizeof(de));
   }
@@ -303,6 +318,11 @@ void file_apped(std::fstream &fs, std::string_view &bin_name, uint32_t ino) {
   struct fs::dirent de{};
   std::memset(&de, 0, sizeof(de));
   de.inum = xshort(inum);
+  de.uid = 1000;
+  de.gid = 1000;
+  de.mask_user = static_cast<char>(6);
+  de.mask_group = static_cast<char>(6);
+  de.mask_other = static_cast<char>(2);
   strncpy(de.name, shortname, fs::DIRSIZ);
   iappend(fs, ino, &de, sizeof(de));
 
