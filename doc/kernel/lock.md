@@ -30,7 +30,6 @@ class spinlock {
 
  public:
   spinlock() = default;
-  explicit spinlock(const char *name) : name(name) {};
 
   auto acquire() -> void;
   auto release() -> void;
@@ -114,7 +113,6 @@ class sleeplock {
 
  public:
   sleeplock() = default;
-  explicit sleeplock(const char *name) : name(name) {};
 
   auto acquire() -> void;
   auto release() -> void;

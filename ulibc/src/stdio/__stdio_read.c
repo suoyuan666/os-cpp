@@ -11,6 +11,8 @@ size_t __stdio_read(FILE *f, unsigned char *buf, size_t len) {
   }
   f->rpos = f->buf;
   f->rend = f->buf + cnt;
-  if (f->buf_size) buf[len - 1] = *f->rpos++;
+  if (f->buf_size) {
+    buf[len - 1] = *f->rpos++;
+  }
   return len;
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstdint>
 
 #include "kernel/fs"
@@ -6,7 +7,7 @@
 
 namespace file {
 struct file {
-  enum uint8_t { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
+  enum : uint8_t { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
   int ref;
   bool readable;
   bool writable;
@@ -28,8 +29,12 @@ struct inode {
   uint32_t dev;
   uint32_t inum;
   int ref;
-  class lock::sleeplock lock{};
   int valid;
+  uint32_t uid;
+  uint32_t gid;
+  unsigned char mask_user;
+  unsigned char mask_group;
+  unsigned char mask_other;
 
   int16_t type;
   int16_t major;
@@ -37,6 +42,7 @@ struct inode {
   int16_t nlink;
   uint32_t size;
   uint32_t addrs[fs::NDIRECT + 1];
+  class lock::sleeplock lock{};
 };
 
 struct devsw {
@@ -58,6 +64,8 @@ struct stat {
   int16_t type;
   int16_t nlink;
   uint64_t size;
+  uint32_t uid;
+  uint32_t gid;
 };
 
 constexpr uint32_t NOFILE{16};

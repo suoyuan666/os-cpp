@@ -115,7 +115,7 @@ auto write(struct file* f, uint64_t addr, int n) -> int {
 
   auto rs{0};
   auto r{0};
-  if (f->type == ::file::file::FD_PIPE) {
+  if (f->type == file::FD_PIPE) {
     rs = pipewrite(f->pipe, addr, n);
   } else if (f->type == T_DEVICE) {
     if (f->major < 0 || f->major >= static_cast<int16_t>(NDEV) ||

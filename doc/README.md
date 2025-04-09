@@ -49,6 +49,7 @@ os-cpp 是一个使用 C++ 20 标准编写，目标架构为 RISC-V 64 的操作
 ## 各个部分的介绍
 
 - [内核部分](./kernel/README.md)
+- [libc 部分](./libc/README.md)
 
 # FAQ
 

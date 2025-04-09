@@ -34,6 +34,24 @@ auto fetch_str(uint64_t addr, char *buf, uint32_t len) -> bool {
   return true;
 }
 
+auto check_permission_for_file(struct file::inode *ip, uint32_t mask) -> bool {
+  auto *p = proc::curr_proc();
+  if (ip->uid == p->user->uid) {
+    if ((ip->mask_user & mask) == 0) {
+      return false;
+    }
+  } else if (ip->gid == p->user->gid) {
+    if ((ip->mask_group & mask) == 0) {
+      return false;
+    }
+  } else {
+    if ((ip->mask_other & mask) == 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 auto get_argu(uint32_t index) -> uint64_t {
   auto *p = proc::curr_proc();
   switch (index) {
@@ -124,9 +142,15 @@ auto create(char *path, int type, int16_t major, int16_t minor)
   }
 
   fs::ilock(ip);
+  const auto *p = proc::curr_proc();
   ip->major = major;
   ip->minor = minor;
   ip->nlink = 1;
+  ip->uid = p->user->uid;
+  ip->gid = p->user->gid;
+  ip->mask_user = static_cast<char>(7);
+  ip->mask_group = static_cast<char>(7);
+  ip->mask_other = static_cast<char>(7);
   fs::iupdate(ip);
 
   if (type == file::T_DIR) {
@@ -140,7 +164,7 @@ auto create(char *path, int type, int16_t major, int16_t minor)
     }
   }
 
-  if (fs::dir_link(dp, name, ip->inum) < 0) {
+  if (fs::dir_link(dp, name, ip) < 0) {
     ip->nlink = 0;
     fs::iupdate(ip);
     fs::iunlockput(ip);
@@ -205,9 +229,16 @@ auto sys_exec() -> uint64_t {
     ++i;
   }
 
-  auto rs = loader::exec(path, argv);
+  auto *ip = fs::namei(path);
+  fs::ilock(ip);
+  if (!check_permission_for_file(ip, 1U)) {
+    fs::iunlock(ip);
+    return -1;
+  }
+
+  auto rs = loader::exec(ip, path, argv);
   if (rs == -1) {
-    fmt::panic("sys_exec: exec call failed");
+    fmt::print("sys_exec: exec call failed\n");
   }
   for (i = 0; i < sizeof(argv) / sizeof(char *) && argv[i] != nullptr; ++i) {
     vm::kfree(argv[i]);
@@ -386,6 +417,26 @@ auto sys_open() -> uint64_t {
     }
   }
 
+  if (mode == file::O_RDONLY) {
+    if (!check_permission_for_file(ip, 1U << 2U)) {
+      fs::iunlockput(ip);
+      log::end_op();
+      return -1;
+    }
+  } else if (mode == file::O_WRONLY || mode == file::O_TRUNC) {
+    if (!check_permission_for_file(ip, 1U << 1U)) {
+      fs::iunlockput(ip);
+      log::end_op();
+      return -1;
+    }
+  } else if (mode == file::O_RDWR) {
+    if (!check_permission_for_file(ip, (1U << 1U) | (1U << 2U))) {
+      fs::iunlockput(ip);
+      log::end_op();
+      return -1;
+    }
+  }
+
   if (ip->type == file::T_DEVICE &&
       (ip->major < 0 || ip->major >= static_cast<int16_t>(file::NDEV))) {
     fs::iunlockput(ip);
@@ -428,6 +479,7 @@ auto sys_open() -> uint64_t {
 
   return fd;
 }
+
 auto sys_write() -> uint64_t {
   uint64_t addr = get_argu(1);
   int size = static_cast<int>(get_argu(2));
@@ -477,6 +529,14 @@ auto sys_mkdir() -> uint64_t {
     log::end_op();
     return -1;
   }
+
+  auto *p = proc::curr_proc();
+  ip->uid = p->user->uid;
+  ip->gid = p->user->gid;
+  ip->mask_user = 7;
+  ip->mask_group = 7;
+  ip->mask_other = 7;
+
   fs::iunlockput(ip);
   log::end_op();
   return 0;
@@ -489,6 +549,23 @@ auto sys_close() -> uint64_t {
   }
   proc::curr_proc()->ofile[fd] = nullptr;
   file::close(f);
+  return 0;
+}
+
+auto sys_setuid() -> uint64_t {
+  auto id = static_cast<uint32_t>(get_argu(0));
+  auto *p = proc::curr_proc();
+  p->user->lock.acquire();
+  p->user->uid = id;
+  p->user->lock.release();
+  return 0;
+}
+auto sys_setgid() -> uint64_t {
+  auto id = static_cast<uint32_t>(get_argu(0));
+  auto *p = proc::curr_proc();
+  p->user->lock.acquire();
+  p->user->gid = id;
+  p->user->lock.release();
   return 0;
 }
 

@@ -1,5 +1,6 @@
 #include "proc.h"
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <fmt>
@@ -25,23 +26,35 @@ namespace proc {
 /* $ riscv64-linux-gnu-readelf -x .text build/utils/initcode
  *
  * Hex dump of section '.text':
- *   0x00000000 17050000 13054502 97050000 93854502 ......E.......E.
+ *   0x00000000 17050000 13054502 97050000 93858502 ......E.........
  *   0x00000010 93086000 73000000 93081000 73000000 ..`.s.......s...
- *   0x00000020 eff09fff 2f696e69 74000000 24000000 ..../init...$...
- *   0x00000030 00000000 00000000 00000000          ............
+ *   0x00000020 eff09fff 2f62696e 2f696e69 74000000 ..../bin/init...
+ *   0x00000030 24000000 00000000 00000000 00000000 $...............
  */
 
+// clang-format off
 const unsigned char initcode[] = {
-    0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 0x00, 0x00,
-    0x93, 0x85, 0x35, 0x02, 0x93, 0x08, 0x60, 0x00, 0x73, 0x00, 0x00, 0x00,
-    0x93, 0x08, 0x10, 0x00, 0x73, 0x00, 0x00, 0x00, 0xef, 0xf0, 0x9f, 0xff,
-    0x2f, 0x69, 0x6e, 0x69, 0x74, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02,
+    0x97, 0x05, 0x00, 0x00, 0x93, 0x85, 0x85, 0x02,
+    0x93, 0x08, 0x60, 0x00, 0x73, 0x00, 0x00, 0x00,
+    0x93, 0x08, 0x10, 0x00, 0x73, 0x00, 0x00, 0x00,
+    0xef, 0xf0, 0x9f, 0xff, 0x2f, 0x62, 0x69, 0x6e,
+    0x2f, 0x69, 0x6e, 0x69, 0x74, 0x00, 0x00, 0x00,
+    0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+// clang-format on
 
 struct process proc_list[NPROC];
 struct process *init_proc{};
 struct cpu cpu_list[NCPU];
 uint32_t next_pid{1};
+struct user root;
+
+struct user_list{
+  struct user user;
+  bool enable{false};
+};
+std::array<user_list, NPROC> user_list;
 
 class lock::spinlock wait_lock{};
 class lock::spinlock pid_lock{};
@@ -50,7 +63,7 @@ auto forkret() -> void;
 
 auto cpuid() -> uint32_t {
   auto id = r_tp();
-  return id; 
+  return id;
 }
 auto curr_cpu() -> struct cpu * {
   auto id = cpuid();
@@ -64,6 +77,8 @@ auto init() -> void {
     proc.kernel_stack =
         vm::KSTACK((int)((uint64_t)&proc - (uint64_t)&proc_list[0]));
   }
+  root.gid = ROOT_ID;
+  root.uid = ROOT_ID;
 }
 
 auto map_stack(uint64_t *kpt) -> void {
@@ -246,6 +261,7 @@ auto user_init() -> void {
 
   p->trapframe->epc = 0;
   p->trapframe->sp = PGSIZE;
+  p->user = &root;
 
   std::strncpy(p->name, "initcode", sizeof(p->name));
   p->cwd = fs::namei((char *)"/");
@@ -350,10 +366,9 @@ auto fork() -> int32_t {
     return -1;
   }
   np->sz = p->sz;
-
   *(np->trapframe) = *(p->trapframe);
-
   np->trapframe->a0 = 0;
+  np->user = p->user;
 
   for (uint32_t i{0}; i < file::NOFILE; ++i) {
     if (p->ofile[i] != nullptr) {

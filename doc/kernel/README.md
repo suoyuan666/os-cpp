@@ -69,24 +69,27 @@ extern "C" void start() {
 
 > kernel 中充斥着大量的类似 `r_mstatus` 和 `w_mstatus` 的函数，这分别代表着读取 `mstatus` 寄存器的值和改变 `mstatus` 寄存器的值。
 >
-> ```c
-> static inline auto r_mstatus() -> uint64_t {
->  uint64_t rs{};
->  asm volatile("csrr %0, mstatus" : "=r"(rs));
->  return rs;
+> ```cpp
+> __attribute__((always_inline)) static inline auto r_mstatus() -> uint64_t {
+>   uint64_t rs{};
+>   asm volatile("csrr %0, mstatus" : "=r"(rs));
+>   return rs;
 > };
-> static inline auto w_mstatus(uint64_t value) -> void {
->  asm volatile("csrw mstatus, %0" : : "r"(value));
+> __attribute__((always_inline)) static inline auto w_mstatus(uint64_t value)
+>     -> void {
+>   asm volatile("csrw mstatus, %0" : : "r"(value));
 > };
 > ```
 >
 > 类似上边这样的函数写的那样，通过 C++ 提供的[内联汇编](https://en.cppreference.com/w/cpp/language/asm)完成了对寄存器的读写
+>
+> `__attribute__((always_inline))` 是为了保证函数内联处理
 
 通过 `w_mepc` 将 `main` 函数的地址写入到 mepc 寄存器，这和写入到 mstatus 寄存器的行为都有一个共同之处，那就是都需要等到最后的 `mret` 指令调用后才能起作用。
 
-并不是写入了 `mstatus` 寄存器就能改变当前的运行模式，这需要 `mret` 指令的配合。`mret` 类似于 `ret`，不同于用户态的 `ret`，`mret`/`sret` 都会将当前的运行模式进行一次切换，并且将 PC 的值更改，而之前的运行模式是 `mstatus`/`sstatus` 寄存器保存的，而之前的 PC 的值也是 `mepc`/`sepc` 寄存器保存的。
+并不是写入了 `mstatus` 寄存器就能改变当前的运行模式，这需要 `mret` 指令的配合。`mret` 类似于 `ret`，不同于用户态的 `ret`，`mret`/`sret` 都会将当前的运行模式进行一次切换，并且将 PC 的值更改，而之前的运行模式是 `mstatus`/`sstatus` 寄存器保存的，之前的 PC 的值也是 `mepc`/`sepc` 寄存器保存的。
 
-从这些寄存器和指令的前缀可以看出，RISC-V 的模式分为三种，分别是 machine、supervisor 和 user。machine 和 supervisor 模式的指令和寄存器都需要有 `m` 和 `s` 为前缀。系统启动时会先处于 machine 模式，而执行完 `start` 之后，运行模式就会变成 supervisor 模式，并继续执行内核初始化的部分。
+从这些寄存器和指令的前缀也可以看出，RISC-V 的模式分为三种，分别是 machine、supervisor 和 user。machine 和 supervisor 模式的指令和寄存器都需要有 `m` 和 `s` 为前缀。系统启动时会先处于 machine 模式，而执行完 `start` 之后，运行模式就会变成 supervisor 模式，并继续执行内核初始化的部分。
 
 ### 内核的初始化
 
@@ -102,15 +105,10 @@ auto main() -> void {
     fmt::print_log(fmt::log_level::INFO, "vm init successful\n");
     proc::init();
     fmt::print_log(fmt::log_level::INFO, "proc init successful\n");
-    trap::init();
     trap::inithart();
-    fmt::print_log(fmt::log_level::INFO, "trap init successful\n");
     plic::init();
     plic::inithart();
-    fmt::print_log(fmt::log_level::INFO, "plic init successful\n");
     bio::init();
-    fs::iinit();
-    file::init();
     fmt::print_log(fmt::log_level::INFO, "file system init successful\n");
     virtio_disk::init();
     fmt::print_log(fmt::log_level::INFO, "disk init successful\n");
@@ -125,14 +123,13 @@ auto main() -> void {
     trap::inithart();
     plic::inithart();
   }
-
   proc::scheduler();
 }
 ```
 
-这里初始化的顺序并不是唯一的，不过 UART 的初始化包含在 console 的初始化中了，也可以将 UART 初始化提出来，因为 fmt 直接使用了 UART 中的 putc 进行输出工作。
+这里初始化的顺序并不是唯一的，有些初始化是为了初始化一些全局变量的值，它本身没什么绝对的依赖关系。
 
-总的来说，经历了一系列的初始化工作后，就会调用 `proc::scheduler()` 进程调度器，因为 `proc::user_init()` 会初始化一个 init 进程的脚手架，这个脚手架的代码直接写死在了 proc.cpp 代码中
+总的来说，经历了一系列的初始化工作后，就会调用 `proc::scheduler()` 进程调度器，因为 `proc::user_init()` 会初始化一个 init 进程的脚手架，这个脚手架的代码直接写死在了 proc.cpp 代码中：
 
 ```cpp
 /* $ riscv64-linux-gnu-readelf -x .text build/utils/initcode

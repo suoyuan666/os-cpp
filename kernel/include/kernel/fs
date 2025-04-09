@@ -36,12 +36,18 @@ constexpr uint32_t MAXFILE{NDIRECT + NINDIRECT};
 
 // On-disk inode structure
 struct dinode {
-  short type;                       // File type
-  short major;                      // Major device number (T_DEVICE only)
-  short minor;                      // Minor device number (T_DEVICE only)
-  short nlink;                      // Number of links to inode in file system
-  unsigned int size;                // Size of file (bytes)
-  unsigned int addrs[NDIRECT + 1];  // Data block addresses
+  int16_t type;                   // File type
+  int16_t major;                  // Major device number (T_DEVICE only)
+  int16_t minor;                  // Minor device number (T_DEVICE only)
+  int16_t nlink;                  // Number of links to inode in file system
+  uint32_t size;                  // Size of file (bytes)
+  uint32_t uid;
+  uint32_t gid;
+  unsigned char mask_user;
+  unsigned char mask_group;
+  unsigned char mask_other;
+  uint32_t addrs[NDIRECT + 1];  // Data block addresses
+  char pad[52];
 };
 
 // Inodes per block.
@@ -60,7 +66,12 @@ constexpr uint32_t BPB{BSIZE * 8};
 constexpr uint32_t DIRSIZ{14};
 
 struct dirent {
-  unsigned short inum;
+  uint16_t inum;
+  uint32_t uid;
+  uint32_t gid;
+  unsigned char mask_user;
+  unsigned char mask_group;
+  unsigned char mask_other;
   char name[DIRSIZ];
 };
 

@@ -14,16 +14,19 @@ set (
     ${PROJECT_SOURCE_DIR}/ulibc/src/stat/stat.c
     # stdio
     # ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/__lockfile.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/__overflow.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/__stdio_read.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/__stdio_write.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/__toread.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/__towrite.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/__uflow.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/fgets.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/fputs.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/fwrite.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/gets.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/gets_s.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/printf.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/puts.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/stdin.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/stdout.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/stdio/vfprintf.c
@@ -47,6 +50,8 @@ set (
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/fork.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/read.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/sbrk.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/setuid.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/setgid.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/write.c
 )
 

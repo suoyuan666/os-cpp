@@ -6,7 +6,7 @@ set(
     ${PROJECT_SOURCE_DIR}/kernel/include
 )
 
-set(UTILS_EXECUTABLES cat init ls sh)
+set(UTILS_C_EXECUTABLES cat init ls sh)
 
 set (CMAKE_CXX_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64d -nostdlib -nostdlib++ -mcmodel=medany")
 set (CMAKE_C_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64d -nostdlib -mcmodel=medany -fno-stack-protector -fno-pie")
@@ -16,7 +16,7 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-common -nostdlib -Wno-main -fno-builti
 
 include_directories(${UTILS_LIBCPP_INCLUDE})
 
-foreach(exe ${UTILS_EXECUTABLES})
+foreach(exe ${UTILS_C_EXECUTABLES})
   add_executable(${exe} ${PROJECT_SOURCE_DIR}/utils/${exe}.c)
   target_link_libraries(${exe} PRIVATE crt1 ulibc)
   target_link_options(${exe} PRIVATE "-Wl,-T${CMAKE_SOURCE_DIR}/utils/user.ld,-z,max-page-size=4096")

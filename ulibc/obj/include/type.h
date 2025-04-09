@@ -23,3 +23,5 @@ typedef __builtin_va_list __isoc_va_list;
 
 typedef unsigned mode_t;
 typedef int pid_t;
+typedef unsigned int uid_t;
+typedef unsigned int gid_t;

@@ -25,5 +25,7 @@ auto iunlockput(struct file::inode *ip) -> void;
 auto ialloc(uint32_t dev, int16_t type) -> struct file::inode *;
 auto iupdate(struct file::inode *ip) -> void;
 auto dir_link(struct file::inode *dp, char *name, uint32_t inum) -> int;
+auto dir_link(struct file::inode *dp, char *name, struct file::inode *other)
+    -> int;
 auto itrunc(struct file::inode *ip) -> void;
 }  // namespace fs

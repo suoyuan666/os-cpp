@@ -6,6 +6,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <cstdint>
+
 void ls(char *path);
 
 int main(int argc, char *argv[]) {
@@ -21,7 +23,7 @@ int main(int argc, char *argv[]) {
 
 char *fmtname(char *path) {
   static char buf[DIRSIZ + 1];
-  char *p = NULL;
+  char *p = nullptr;
 
   for (p = path + strlen(path); p >= path && *p != '/'; p--);
   p++;
@@ -34,8 +36,72 @@ char *fmtname(char *path) {
   return buf;
 }
 
+void print_permissions(const struct dirent *de) {
+  if (de->mask_user & (1U << 2U)) {
+    printf("r");
+  } else {
+    printf(" ");
+  }
+  if (de->mask_user & (1U << 1U)) {
+    printf("w");
+  } else {
+    printf(" ");
+  }
+  if (de->mask_user & 1U) {
+    printf("x");
+  } else {
+    printf(" ");
+  }
+  printf(" ");
+
+  if (de->mask_group & (1U << 2U)) {
+    printf("r");
+  } else {
+    printf(" ");
+  }
+  if (de->mask_group & (1U << 1U)) {
+    printf("w");
+  } else {
+    printf(" ");
+  }
+  if (de->mask_group & 1U) {
+    printf("x");
+  } else {
+    printf(" ");
+  }
+  printf(" ");
+
+  if (de->mas_other & (1U << 2U)) {
+    printf("r");
+  } else {
+    printf(" ");
+  }
+  if (de->mas_other & (1U << 1U)) {
+    printf("w");
+  } else {
+    printf(" ");
+  }
+  if (de->mas_other & 1U) {
+    printf("x");
+  } else {
+    printf(" ");
+  }
+}
+
+void print_id(const uint32_t id) {
+  if (id < 10) {
+    printf("   %d", id);
+  } else if (id < 100) {
+    printf("  %d", id);
+  } else if (id < 1000) {
+    printf(" %d", id);
+  } else {
+    printf("%d", id);
+  }
+}
+
 void ls(char *path) {
-  int fd = open(path, O_RDONLY);
+  auto fd = open(path, O_RDONLY);
   if (fd < 0) {
     printf("ls: cannot open %s\n", path);
     exit(1);
@@ -49,13 +115,17 @@ void ls(char *path) {
   }
 
   char buf[512];
-  char *p = NULL;
+  char *p = nullptr;
   struct dirent de;
 
   switch (st.type) {
     case T_DEVICE:
     case T_FILE:
-      printf("%s %d %d %d\n", fmtname(path), st.type, st.ino, (int)st.size);
+      printf(" ");
+      print_id(st.uid);
+      printf(" ");
+      print_id(st.gid);
+      printf(" %d %d %d %s\n", st.type, st.ino, (int)st.size, fmtname(path));
       break;
 
     case T_DIR:
@@ -67,7 +137,9 @@ void ls(char *path) {
       p = buf + strlen(buf);
       *p++ = '/';
       while (read(fd, &de, sizeof(de)) == sizeof(de)) {
-        if (de.inum == 0) continue;
+        if (de.inum == 0) {
+          continue;
+        }
         memmove(p, de.name, DIRSIZ);
         p[DIRSIZ] = 0;
         if (stat(buf, &st) < 0) {
@@ -75,7 +147,13 @@ void ls(char *path) {
           continue;
         }
         const char *name = fmtname(buf);
-        printf("%s %d %d %d\n", name, st.type, st.ino, (int)st.size);
+
+        print_permissions(&de);
+        printf(" ");
+        print_id(st.uid);
+        printf(" ");
+        print_id(st.gid);
+        printf(" %d %d %d %s\n", st.type, st.ino, (int)st.size, name);
       }
       break;
   }

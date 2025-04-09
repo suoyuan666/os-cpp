@@ -19,6 +19,7 @@ Checks: '
   -cppcoreguidelines-avoid-magic-numbers,
   -readability-*,
   -hicpp-no-assembler,
+  -bugprone-reserved-identifier,
 '
 CheckOptions:
   - { key: modernize-use-auto.MinTypeNameLength,                            value: 5  }
