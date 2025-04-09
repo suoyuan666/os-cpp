@@ -1,27 +1,207 @@
 // -*- C++ -*-
 #pragma once
-#include "utils"
+#include <algorithm>
+#include <fmt>
+#include <utility>
 
 namespace std {
-template <class T>
+struct nullopt_t {
+  explicit constexpr nullopt_t(int) {}
+};
+inline constexpr nullopt_t nullopt{0};
+
+struct in_place_t {
+  explicit constexpr in_place_t() = default;
+};
+inline constexpr in_place_t in_place{};
+
+template <typename T>
+struct in_place_type_t {
+  explicit constexpr in_place_type_t() = default;
+};
+
+template <typename T>
+inline constexpr in_place_type_t<T> in_place_type{};
+
+class bad_optional_access {};
+
+template <typename T>
 class optional {
-  bool _has_value{false};
-  union {
-    T _value;
+  union storage_t {
+    char dummy;
+    T value;
+
+    constexpr storage_t() noexcept : dummy{} {}
+
+    template <typename... Args>
+    constexpr storage_t(in_place_t, Args&&... args)
+        : value(std::forward<Args>(args)...) {}
+
+    ~storage_t() {}
   };
 
- public:
-  optional() = default;
-  optional(const T& val) : _has_value(true), _value(val) {};
-  optional(T&& val) : _has_value(true), _value(move(val)) {};
+  bool _has_value{false};
+  storage_t _storage{};
 
-  [[nodiscard]] auto has_value() const -> bool { return _has_value; }
-
-  auto value() -> T& { return _value; }
-  auto value() const -> const T& { return _value; }
-
-  auto value_or(const T& default_value) -> T& {
-    return _has_value ? _value : default_value;
+  constexpr void reset() noexcept {
+    if (_has_value) {
+      _storage.value.~T();
+      _has_value = false;
+    }
   }
+
+ public:
+  constexpr optional() noexcept = default;
+  constexpr optional(nullopt_t) noexcept {}
+
+  constexpr optional(const optional& other) {
+    if (other._has_value) {
+      _storage.value = other._storage.value;
+    }
+  }
+
+  constexpr optional(optional&& other) {
+    if (other._has_value) {
+      _storage.value = std::move(other._storage.value);
+    }
+  }
+
+  template <typename... Args>
+  constexpr optional(in_place_t, Args&&... args)
+      : _has_value(true), _storage(in_place, std::forward<Args>(args)...) {}
+  template <typename U, typename... Args>
+  constexpr optional(in_place_t, std::initializer_list<U> il, Args&&... args)
+      : _has_value(true), _storage(in_place, il, std::forward<Args>(args)...) {}
+  template <typename U = T>
+  constexpr optional(U&& value)
+      : _has_value(true), _storage(in_place, std::forward<U>(value)) {}
+  template <typename U = T>
+  constexpr optional(const U& value)
+      : _has_value(true), _storage(in_place, std::forward<U>(value)) {}
+
+  constexpr auto operator=(nullopt_t) noexcept -> optional& {
+    reset();
+    return *this;
+  }
+
+  constexpr auto operator=(const optional& other) -> optional& {
+    if (this == &other) {
+      return *this;
+    }
+
+    if (other._has_value) {
+      if (_has_value) {
+        _storage.value = other._storage.value;
+      } else {
+        construct(other._storage.value);
+      }
+    } else {
+      reset();
+    }
+
+    return *this;
+  }
+
+  constexpr auto operator=(optional&& other) -> optional& {
+    if (this == &other) {
+      return *this;
+    }
+
+    if (other._has_value) {
+      if (_has_value) {
+        _storage.value = std::move(other._storage.value);
+      } else {
+        construct(std::move(other._storage.value));
+      }
+    } else {
+      reset();
+    }
+
+    return *this;
+  }
+
+  template <typename U = T>
+  constexpr auto operator=(U&& value) -> optional& {
+    if (_has_value) {
+      _storage.value = std::forward<U>(value);
+    } else {
+      construct(std::forward<U>(value));
+    }
+    return *this;
+  }
+
+  constexpr auto operator->() noexcept -> T* { return &_storage.value; }
+  constexpr auto operator->() const noexcept -> const T* {
+    return &_storage.value;
+  }
+  constexpr auto operator*() & noexcept -> T& { return _storage.value; }
+  constexpr auto operator*() const& noexcept -> const T& {
+    return _storage.value;
+  }
+  constexpr auto operator*() && noexcept -> T&& {
+    return std::move(_storage.value);
+  }
+  constexpr auto operator*() const&& noexcept -> const T&& {
+    return std::move(_storage.value);
+  }
+
+  constexpr explicit operator bool() const noexcept { return _has_value; }
+
+  [[nodiscard]] constexpr auto has_value() const noexcept -> bool {
+    return _has_value;
+  }
+
+  constexpr auto value() & -> T& {
+    if (!_has_value) {
+      fmt::panic("optional::value: no value");
+    }
+    return _storage.value;
+  }
+
+  constexpr auto value() const& -> const T& {
+    if (!_has_value) {
+      fmt::panic("optional::value: no value");
+    }
+    return _storage.value;
+  }
+
+  constexpr auto value() && -> T&& {
+    if (!_has_value) {
+      fmt::panic("optional::value: no value");
+    }
+    return std::move(_storage.value);
+  }
+
+  constexpr auto value() const&& -> const T&& {
+    if (!_has_value) {
+      fmt::panic("optional::value: no value");
+    }
+    return std::move(_storage.value);
+  }
+
+  template <typename U>
+  constexpr auto value_or(U&& default_value) const& -> T {
+    if (_has_value) {
+      return _storage.value;
+    }
+    return static_cast<T>(std::forward<U>(default_value));
+  }
+
+  template <typename U>
+  constexpr auto value_or(U&& default_value) && -> T {
+    if (_has_value) {
+      return std::move(_storage.value);
+    }
+    return static_cast<T>(std::forward<U>(default_value));
+  }
+};
+
+template <typename T>
+class optional<T&> {
+  static_assert(sizeof(T) != sizeof(T), "std::optional<T&> is not allowed");
+};
+template <typename T>
+class optional<T&&> {
+  static_assert(sizeof(T) != sizeof(T), "std::optional<T&&> is not allowed");
 };
 }  // namespace std

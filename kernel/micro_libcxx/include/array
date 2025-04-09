@@ -1,38 +1,137 @@
 // -*- C++ -*-
 #pragma once
+#include <cstddef>
 #include <cstdint>
+#include <fmt>
 #include <optional>
 
 namespace std {
 
-template <class T, uint32_t N>
+template <typename T, size_t N>
 struct array {
-  T data[N];
+    using value_type             = T;
+    using size_type              = size_t;
+    using difference_type        = ptrdiff_t;
+    using reference              = value_type&;
+    using const_reference        = const value_type&;
+    using pointer                = value_type*;
+    using const_pointer          = const value_type*;
+    using iterator               = value_type*;
+    using const_iterator         = const value_type*;
+    // using reverse_iterator       = std::reverse_iterator<iterator>;
+    // using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-  array() = default;
-  static_assert(N > 0, "arrary size should greater than 0");
+    T _elements[N];
 
-  auto at(uint32_t index) -> T* {
-    // static_assert(index > N, ".at() error\n");
-    return &data[index];
-  }
-  auto at(uint32_t index) const -> const T* {
-    // static_assert(index > N, ".at() error\n");
-    return &data[index];
-  }
+    // 元素访问
+    constexpr auto at(size_type pos) -> reference {
+        if (pos >= N) {
+            fmt::panic("array::at: out of range");
+        }
+        return _elements[pos];
+    }
 
-  auto operator[](uint32_t index) noexcept -> T& { return data[index]; }
-  auto operator[](uint32_t index) const noexcept -> const T& {
-    return data[index];
-  }
+    constexpr auto at(size_type pos) const -> const_reference {
+        if (pos >= N) {
+            fmt::panic("array::at: out of range");
+        }
+        return _elements[pos];
+    }
 
-  [[nodiscard]] constexpr auto size() const noexcept -> uint32_t { return N; }
-  [[nodiscard]] constexpr auto empty() const noexcept -> bool { return N == 0; }
+    constexpr auto operator[](size_type pos) -> reference {
+        return _elements[pos];
+    }
 
-  auto begin() noexcept -> T* { return data; }
-  auto begin() const noexcept -> const T* { return data; }
-  auto end() noexcept -> T* { return data + N; }
-  auto end() const noexcept -> const T* { return data + N; }
+    constexpr auto operator[](size_type pos) const -> const_reference {
+        return _elements[pos];
+    }
+
+    constexpr auto front() -> reference {
+        return _elements[0];
+    }
+
+    constexpr auto front() const -> const_reference {
+        return _elements[0];
+    }
+
+    constexpr auto back() -> reference {
+        return _elements[N - 1];
+    }
+
+    constexpr auto back() const -> const_reference {
+        return _elements[N - 1];
+    }
+
+    constexpr auto data() noexcept -> pointer {
+        return _elements;
+    }
+
+    constexpr auto data() const noexcept -> const_pointer {
+        return _elements;
+    }
+
+    constexpr auto begin() noexcept -> iterator {
+        return iterator(_elements);
+    }
+
+    constexpr auto begin() const noexcept -> const_iterator {
+        return const_iterator(_elements);
+    }
+
+    constexpr auto cbegin() const noexcept -> const_iterator {
+        return const_iterator(_elements);
+    }
+
+    constexpr auto end() noexcept -> iterator {
+        return iterator(_elements + N);
+    }
+
+    constexpr auto end() const noexcept -> const_iterator {
+        return const_iterator(_elements + N);
+    }
+
+    constexpr auto cend() const noexcept -> const_iterator {
+        return const_iterator(_elements + N);
+    }
+
+    [[nodiscard]] constexpr auto empty() const noexcept -> bool {
+        return N == 0;
+    }
+
+    [[nodiscard]] constexpr auto size() const noexcept -> size_type {
+        return N;
+    }
+
+    [[nodiscard]] constexpr auto max_size() const noexcept -> size_type {
+        return N;
+    }
+
+    constexpr void fill(const T& value) {
+        for (size_type i = 0; i < N; ++i) {
+            _elements[i] = value;
+        }
+    }
+
+    constexpr void swap(array& other) noexcept(noexcept(std::swap(std::declval<T&>(), std::declval<T&>()))) {
+        for (size_type i = 0; i < N; ++i) {
+            std::swap(_elements[i], other._elements[i]);
+        }
+    }
 };
+
+template <typename T, size_t N>
+constexpr auto operator==(const array<T, N>& lhs, const array<T, N>& rhs) -> bool {
+    for (size_t i = 0; i < N; ++i) {
+        if (!(lhs[i] == rhs[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+template <typename T, size_t N>
+constexpr void swap(array<T, N>& lhs, array<T, N>& rhs) noexcept(noexcept(lhs.swap(rhs))) {
+    lhs.swap(rhs);
+}
 
 }  // namespace std

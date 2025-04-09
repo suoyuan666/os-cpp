@@ -1,0 +1,4 @@
+// -*- C++ -*-
+#pragma once
+#include <stddef.h>
+using nullptr_t = decltype(nullptr);

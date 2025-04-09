@@ -20,21 +20,20 @@ template <typename T>
 void format_arg(char *buffer, uint32_t size, const T &arg,
                 bool is_hex = false) {
   if constexpr (std::is_integral_v<T>) {
-    // 确保缓冲区足够存放至少一个字符和终止符
     if (size < 2) {
       if (size >= 1) buffer[0] = '\0';
+      puts(buffer);
       return;
     }
 
     char *end = buffer + size - 1;
-    *end = '\0';          // 终止符
-    char *ptr = end - 1;  // 从倒数第二位开始填充
+    *end = '\0';
+    char *ptr = end - 1;
 
-    using UnsignedType = typename std::make_unsigned_t<T>;
+    using UnsignedType = std::make_unsigned_t<T>;
     UnsignedType unsigned_value;
     bool neg = false;
 
-    // 处理有符号类型的负值
     if constexpr (std::is_signed_v<T>) {
       neg = (arg < 0);
       unsigned_value = neg ? static_cast<UnsignedType>(-arg)
@@ -44,45 +43,50 @@ void format_arg(char *buffer, uint32_t size, const T &arg,
     }
 
     if (unsigned_value == 0) {
-      puts("0");
+      buffer[0] = '0';
+      buffer[1] = '\0';
+      puts(buffer);
       return;
     }
-    // 从后向前填充数字
-    while (unsigned_value > 0 && ptr >= buffer) {
-      auto digit = unsigned_value % (is_hex ? 16 : 10);
-      *ptr-- =
-          (digit < 10) ? ('0' + digit) : ('a' + (digit - 10));  // 十六进制小写
-      unsigned_value /= (is_hex ? 16 : 10);
+
+    if (is_hex) {
+      constexpr char hex_digits[] = "0123456789abcdef";
+      while (unsigned_value > 0 && ptr >= buffer) {
+        *ptr-- = hex_digits[unsigned_value & 0xF];
+        unsigned_value >>= 4;
+      }
+    } else {
+      while (unsigned_value > 0 && ptr >= buffer) {
+        *ptr-- = '0' + (unsigned_value % 10);
+        unsigned_value /= 10;
+      }
     }
 
-    // 添加负号（如果有空间）
     if (neg && ptr >= buffer) {
       *ptr-- = '-';
     }
 
-    // 确定有效字符串的起始位置并输出
     char *start = ptr + 1;
     puts(start);
 
   } else if constexpr (std::is_same_v<T, const char *> ||
                        std::is_same_v<T, char *>) {
-    // 安全复制字符串到缓冲区
     if (size == 0) {
       return;
     }
     if (!arg) {
       buffer[0] = '\0';
+      puts("");
       return;
     }
 
-    uint32_t i = 0;
-    while (i < size - 1 && arg[i] != '\0') {
-      buffer[i] = arg[i];
-      i++;
+    size_t len = 0;
+    while (len < size - 1 && arg[len] != '\0') {
+      buffer[len] = arg[len];
+      len++;
     }
-    buffer[i] = '\0';  // 确保终止
-    puts(buffer);      // 无换行输出
-
+    buffer[len] = '\0';
+    puts(buffer);
   } else {
     static_assert(std::is_integral_v<T> || std::is_same_v<T, const char *> ||
                       std::is_same_v<T, char *>,
