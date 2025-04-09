@@ -85,13 +85,6 @@ auto ialloc(uint32_t dev, int16_t type) -> struct file::inode * {
   for (uint32_t inum = 1; inum < sb.ninodes; ++inum) {
     auto *bp = bio::bread(dev, IBLOCK(inum, sb));
     auto *dip = (struct dinode *)bp->data + inum % IPB;
-    auto *p = proc::curr_proc();
-
-    dip->uid = p->user->uid;
-    dip->gid = p->user->gid;
-    dip->mask_user = static_cast<char>(0x110);
-    dip->mask_group = static_cast<char>(0x110);
-    dip->mask_other = static_cast<char>(0x110);
     if (dip->type == 0) {
       std::memset(dip, 0, sizeof(*dip));
       dip->type = type;
@@ -108,7 +101,7 @@ auto ialloc(uint32_t dev, int16_t type) -> struct file::inode * {
 
 auto iupdate(struct file::inode *ip) -> void {
   auto *bp = bio::bread(ip->dev, IBLOCK(ip->inum, sb));
-  auto *dip = (struct dinode *)bp->data + ip->inum % IPB;
+  auto *dip = reinterpret_cast<struct dinode *>(bp->data) + ip->inum % IPB;
 
   dip->type = ip->type;
   dip->major = ip->major;
@@ -277,7 +270,7 @@ auto itrunc(struct file::inode *ip) -> void {
 
   if (ip->addrs[NDIRECT]) {
     auto *bp = bio::bread(ip->dev, ip->addrs[NDIRECT]);
-    auto a = (uint32_t *)bp->data;
+    auto *a = reinterpret_cast<uint32_t *>(bp->data);
 
     for (uint32_t j{0}; j < NDIRECT; ++j) {
       if (a[j]) {
@@ -300,6 +293,8 @@ auto stati(struct file::inode &ip, struct file::stat &st) -> void {
   st.type = ip.type;
   st.nlink = ip.nlink;
   st.size = ip.size;
+  st.uid = ip.uid;
+  st.gid = ip.gid;
 }
 
 auto readi(struct file::inode *ip, bool user_dst, uint64_t dst, uint32_t offset,
@@ -397,6 +392,39 @@ auto dir_lookup(struct file::inode *dp, char *name, uint32_t *poff)
   return nullptr;
 }
 
+auto dir_link(struct file::inode *dp, char *name, struct file::inode *other)
+    -> int {
+  struct file::inode *ip = dir_lookup(dp, name, nullptr);
+  if (ip != nullptr) {
+    iput(ip);
+    return -1;
+  }
+
+  struct dirent de{};
+  uint32_t off{0};
+  for (; off < dp->size; off += sizeof(de)) {
+    if (readi(dp, false, (uint64_t)&de, off, sizeof(de)) != sizeof(de)) {
+      fmt::panic("fs::dir_link: read");
+    }
+    if (de.inum == 0) {
+      break;
+    }
+  }
+
+  std::strncpy(de.name, name, DIRSIZ);
+  de.inum = other->inum;
+  de.uid = other->uid;
+  de.gid = other->gid;
+  de.mask_user = other->mask_user;
+  de.mask_group = other->mask_group;
+  de.mask_other = other->mask_other;
+  if (writei(dp, false, (uint64_t)&de, off, sizeof(de)) != sizeof(de)) {
+    return -1;
+  }
+
+  return 0;
+}
+
 auto dir_link(struct file::inode *dp, char *name, uint32_t inum) -> int {
   struct file::inode *ip = dir_lookup(dp, name, nullptr);
   if (ip != nullptr) {
@@ -471,7 +499,8 @@ auto namex(char *path, bool nameiparent, char *name) -> struct file::inode * {
       iunlock(ip);
       return ip;
     }
-    if ((next = dir_lookup(ip, name, nullptr)) == nullptr) {
+    next = dir_lookup(ip, name, nullptr);
+    if (next == nullptr) {
       iunlockput(ip);
       return nullptr;
     }

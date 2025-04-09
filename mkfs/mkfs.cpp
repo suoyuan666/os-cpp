@@ -30,7 +30,8 @@ void wsect(std::fstream &fd, uint32_t sec, void *buf);
 void rsect(std::fstream &fd, uint32_t sec, void *buf);
 void winode(std::fstream &fd, uint inum, struct fs::dinode *ip);
 void rinode(std::fstream &fd, uint inum, struct fs::dinode *ip);
-auto ialloc(std::fstream &fd, ushort type) -> uint32_t;
+auto ialloc(std::fstream &fd, ushort type, std::array<unsigned char, 3> mask)
+    -> uint32_t;
 void balloc(std::fstream &fd, int used);
 void iappend(std::fstream &fd, uint inum, void *xp, uint64_t n);
 void file_apped(std::fstream &fs, std::string_view &bin_name, uint32_t ino);
@@ -51,6 +52,29 @@ auto xint(uint x) -> uint {
   a[2] = x >> 16U;
   a[3] = x >> 24U;
   return y;
+}
+
+template <bool root>
+auto ialloc(std::fstream &fd, ushort type, std::array<unsigned char, 3> mask)
+    -> uint32_t {
+  auto inum = freeinode++;
+  struct fs::dinode din{};
+
+  din.type = static_cast<int16_t>(xshort(type));
+  din.nlink = static_cast<int16_t>(xshort(1));
+  din.size = xint(0);
+  if constexpr (root) {
+    din.uid = xint(0);
+    din.gid = xint(0);
+  } else {
+    din.uid = xint(1000);
+    din.gid = xint(1000);
+  }
+  din.mask_user = mask.at(0);
+  din.mask_group = mask.at(1);
+  din.mask_other = mask.at(2);
+  winode(fd, inum, &din);
+  return inum;
 }
 
 auto main(int argc, char *argv[]) -> int {
@@ -119,7 +143,7 @@ auto main(int argc, char *argv[]) -> int {
   std::memmove(buf, &sb, sizeof(sb));
   wsect(fs, 1, buf);
 
-  auto rootino = ialloc(fs, fs::T_DIR);
+  auto rootino = ialloc<true>(fs, fs::T_DIR, {7, 7, 7});
   assert(rootino == 1);
 
   {
@@ -127,9 +151,9 @@ auto main(int argc, char *argv[]) -> int {
     de.inum = xshort(rootino);
     de.uid = xint(0);
     de.gid = xint(0);
-    de.mask_user = static_cast<char>(6);
-    de.mask_group = static_cast<char>(6);
-    de.mask_other = static_cast<char>(2);
+    de.mask_user = static_cast<unsigned char>(7);
+    de.mask_group = static_cast<unsigned char>(7);
+    de.mask_other = static_cast<unsigned char>(5);
     strcpy(de.name, ".");
     iappend(fs, rootino, &de, sizeof(de));
   }
@@ -138,9 +162,9 @@ auto main(int argc, char *argv[]) -> int {
     de.inum = xshort(rootino);
     de.uid = xint(0);
     de.gid = xint(0);
-    de.mask_user = static_cast<char>(7);
-    de.mask_group = static_cast<char>(7);
-    de.mask_other = static_cast<char>(2);
+    de.mask_user = static_cast<unsigned char>(7);
+    de.mask_group = static_cast<unsigned char>(7);
+    de.mask_other = static_cast<unsigned char>(5);
     strcpy(de.name, "..");
     iappend(fs, rootino, &de, sizeof(de));
   }
@@ -148,14 +172,14 @@ auto main(int argc, char *argv[]) -> int {
   constexpr std::array<std::string_view, 3> root_dir_name{"bin", "home", "tmp"};
   std::array<uint32_t, 3> root_dir_id{};
   for (uint32_t i = 0; i < 3; ++i) {
-    root_dir_id.at(i) = ialloc(fs, fs::T_DIR);
+    root_dir_id.at(i) = ialloc<true>(fs, fs::T_DIR, {7, 7, 7});
     struct fs::dirent de{};
     de.inum = xshort(root_dir_id.at(i));
     de.uid = xint(0);
     de.gid = xint(0);
-    de.mask_user = static_cast<char>(7);
-    de.mask_group = static_cast<char>(7);
-    de.mask_other = static_cast<char>(2);
+    de.mask_user = static_cast<unsigned char>(7);
+    de.mask_group = static_cast<unsigned char>(7);
+    de.mask_other = static_cast<unsigned char>(5);
     strcpy(de.name, root_dir_name.at(i).begin());
     iappend(fs, rootino, &de, sizeof(de));
   }
@@ -211,12 +235,9 @@ void rsect(std::fstream &fd, uint32_t sec, void *buf) {
 
 void winode(std::fstream &fd, uint inum, struct fs::dinode *ip) {
   char buf[fs::BSIZE];
-  uint32_t bn = 0;
-  struct fs::dinode *dip = nullptr;
-
-  bn = ((inum) / fs::IPB + sb.inodestart);
+  uint32_t bn = ((inum) / fs::IPB + sb.inodestart);
   rsect(fd, bn, buf);
-  dip = ((struct fs::dinode *)buf) + (inum % fs::IPB);
+  auto *dip = ((struct fs::dinode *)buf) + (inum % fs::IPB);
   *dip = *ip;
   wsect(fd, bn, buf);
 }
@@ -230,18 +251,6 @@ void rinode(std::fstream &fd, uint inum, struct fs::dinode *ip) {
   rsect(fd, bn, buf);
   dip = ((struct fs::dinode *)buf) + (inum % fs::IPB);
   *ip = *dip;
-}
-
-auto ialloc(std::fstream &fd, ushort type) -> uint32_t {
-  uint inum = freeinode++;
-  struct fs::dinode din{};
-
-  std::memset(&din, '\0', sizeof(din));
-  din.type = static_cast<int16_t>(xshort(type));
-  din.nlink = static_cast<int16_t>(xshort(1));
-  din.size = xint(0);
-  winode(fd, inum, &din);
-  return inum;
 }
 
 void balloc(std::fstream &fd, int used) {
@@ -306,23 +315,26 @@ void file_apped(std::fstream &fs, std::string_view &bin_name, uint32_t ino) {
   }
 
   assert(index(shortname, '/') == nullptr);
+  assert(strlen(shortname) <= fs::DIRSIZ);
 
   std::cout << "[LOG]: append the file to rootfs: " << shortname << "\n";
 
   std::ifstream fd{bin_name.begin(), std::ios_base::binary};
 
-  assert(strlen(shortname) <= fs::DIRSIZ);
-
-  auto inum = ialloc(fs, fs::T_FILE);
+  uint32_t inum{0};
+  if (std::strcmp(shortname, "init") == 0) {
+    inum = ialloc<true>(fs, fs::T_FILE, {7, 5, 0});
+  } else {
+    inum = ialloc<false>(fs, fs::T_FILE, {7, 5, 0});
+  }
 
   struct fs::dirent de{};
-  std::memset(&de, 0, sizeof(de));
   de.inum = xshort(inum);
-  de.uid = 1000;
-  de.gid = 1000;
-  de.mask_user = static_cast<char>(6);
-  de.mask_group = static_cast<char>(6);
-  de.mask_other = static_cast<char>(2);
+  de.uid = xint(1000);
+  de.gid = xint(1000);
+  de.mask_user = static_cast<unsigned char>(7);
+  de.mask_group = static_cast<unsigned char>(5);
+  de.mask_other = static_cast<unsigned char>(0);
   strncpy(de.name, shortname, fs::DIRSIZ);
   iappend(fs, ino, &de, sizeof(de));
 

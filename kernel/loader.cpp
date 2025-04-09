@@ -57,25 +57,18 @@ auto fail_work(uint64_t *pagetable, struct file::inode *&ip, uint64_t sz)
   }
 }
 
-auto exec(char *path, char **argv) -> int {
+auto exec(struct file::inode *ip, char *path, char **argv) -> int {
   char *s = nullptr, *last = nullptr;
   int i = 0;
   uint64_t off = 0;
   uint64_t argc = 0, sz = 0, sp = 0, ustack[MAXARGV], stackbase = 0;
   struct elfhdr elf{};
-  struct file::inode *ip = nullptr;
   struct proghdr ph{};
   uint64_t *pagetable = nullptr;
   uint64_t *oldpagetable = nullptr;
   auto *p = proc::curr_proc();
 
   log::begin_op();
-
-  if ((ip = fs::namei(path)) == nullptr) {
-    log::end_op();
-    return -1;
-  }
-  fs::ilock(ip);
 
   if (fs::readi(ip, false, (uint64_t)&elf, 0, sizeof(elf)) != sizeof(elf)) {
     fail_work(pagetable, ip, sz);

@@ -6,6 +6,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <cstdint>
+
 void ls(char *path);
 
 int main(int argc, char *argv[]) {
@@ -34,6 +36,70 @@ char *fmtname(char *path) {
   return buf;
 }
 
+void print_permissions(const struct dirent *de) {
+  if (de->mask_user & (1U << 2U)) {
+    printf("r");
+  } else {
+    printf(" ");
+  }
+  if (de->mask_user & (1U << 1U)) {
+    printf("w");
+  } else {
+    printf(" ");
+  }
+  if (de->mask_user & 1U) {
+    printf("x");
+  } else {
+    printf(" ");
+  }
+  printf(" ");
+
+  if (de->mask_group & (1U << 2U)) {
+    printf("r");
+  } else {
+    printf(" ");
+  }
+  if (de->mask_group & (1U << 1U)) {
+    printf("w");
+  } else {
+    printf(" ");
+  }
+  if (de->mask_group & 1U) {
+    printf("x");
+  } else {
+    printf(" ");
+  }
+  printf(" ");
+
+  if (de->mas_other & (1U << 2U)) {
+    printf("r");
+  } else {
+    printf(" ");
+  }
+  if (de->mas_other & (1U << 1U)) {
+    printf("w");
+  } else {
+    printf(" ");
+  }
+  if (de->mas_other & 1U) {
+    printf("x");
+  } else {
+    printf(" ");
+  }
+}
+
+void print_id(const uint32_t id) {
+  if (id < 10) {
+    printf("   %d", id);
+  } else if (id < 100) {
+    printf("  %d", id);
+  } else if (id < 1000) {
+    printf(" %d", id);
+  } else {
+    printf("%d", id);
+  }
+}
+
 void ls(char *path) {
   auto fd = open(path, O_RDONLY);
   if (fd < 0) {
@@ -55,7 +121,11 @@ void ls(char *path) {
   switch (st.type) {
     case T_DEVICE:
     case T_FILE:
-      printf("%d %d %d %s\n", st.type, st.ino, (int)st.size, fmtname(path));
+      printf(" ");
+      print_id(st.uid);
+      printf(" ");
+      print_id(st.gid);
+      printf(" %d %d %d %s\n", st.type, st.ino, (int)st.size, fmtname(path));
       break;
 
     case T_DIR:
@@ -78,24 +148,12 @@ void ls(char *path) {
         }
         const char *name = fmtname(buf);
 
-        if (de.mask_user & (1U << 2U)) {
-          printf("r");
-        } else {
-          printf(" ");
-        }
-        if (de.mask_user & (1U << 1U)) {
-          printf("w");
-        } else {
-          printf(" ");
-        }
-        if (de.mask_user & 1U) {
-          printf("x");
-        } else {
-          printf(" ");
-        }
-
-        printf(" %d %d %d %d %d %s\n", de.uid, de.gid, st.type, st.ino,
-               (int)st.size, name);
+        print_permissions(&de);
+        printf(" ");
+        print_id(st.uid);
+        printf(" ");
+        print_id(st.gid);
+        printf(" %d %d %d %s\n", st.type, st.ino, (int)st.size, name);
       }
       break;
   }

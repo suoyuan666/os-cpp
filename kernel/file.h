@@ -64,6 +64,8 @@ struct stat {
   int16_t type;
   int16_t nlink;
   uint64_t size;
+  uint32_t uid;
+  uint32_t gid;
 };
 
 constexpr uint32_t NOFILE{16};
