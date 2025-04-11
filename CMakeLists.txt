@@ -30,6 +30,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     message(STATUS "Configuring Release build")
 endif()
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pipe -flto=thin -fsanitize=cfi -fvisibility=hidden")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pipe -flto=thin -fsanitize=cfi -fvisibility=hidden")
+
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" PATH_TO_CMAKELISTS_TXT)
 if(EXISTS "${PATH_TO_CMAKELISTS_TXT}")
     message(FATAL_ERROR "Run CMake from a build subdirectory! \"mkdir build ; cd build ; cmake ..\" \
@@ -42,6 +45,7 @@ add_subdirectory(ulibc)
 add_subdirectory(kernel)
 add_subdirectory(utils)
 
+message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "CMAKE_CXX_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG}")

@@ -19,7 +19,7 @@ set (
     fs.cpp
     log.cpp
     proc.cpp
-    virtio_disk.cpp
+    virtio.cpp
     log.cpp
     lock.cpp
     loader.cpp
@@ -40,12 +40,13 @@ set (CMAKE_CXX_FLAGS "-target riscv64-unknown-elf -march=rv64g -mabi=lp64d -nost
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fno-common")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-builtin-memcpy -Wno-main")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-builtin-strncpy -fno-builtin-strncmp -fno-builtin-strlen -fno-builtin-memset")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pipe -flto=thin -fsanitize=kcfi -fvisibility=hidden")
 
 add_subdirectory(micro_libcxx)
 
 add_executable(${KERNEL_NAME} ${KERNEL_SRC})
 
-target_link_options(${KERNEL_NAME} PRIVATE "-Wl,-T${CMAKE_SOURCE_DIR}/kernel/kernel.ld")
+target_link_options(${KERNEL_NAME} PRIVATE "-Wl,-T${CMAKE_SOURCE_DIR}/kernel/kernel.ld,--icf=safe,--gc-sections")
 
 target_include_directories(${KERNEL_NAME} PRIVATE ${KERNEL_INCLUDE})
 target_link_libraries(${KERNEL_NAME} PRIVATE micro_libcxx)
