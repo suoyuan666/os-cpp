@@ -10,6 +10,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 set(CMAKE_C_COMPILER clang)
 set(CMAKE_CXX_COMPILER clang++)
+set(CMAKE_LINKER_TYPE lld)
+set(CMAKE_C_USING_LINKER_lld "-fuse-ld=lld")
+set(CMAKE_CXX_USING_LINKER_lld "-fuse-ld=lld")
+set(CMAKE_ASM_USING_LINKER_lld "-fuse-ld=lld")
 
 project(os-cpp
     VERSION 0.01
