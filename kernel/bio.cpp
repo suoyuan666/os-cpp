@@ -6,15 +6,15 @@
 
 #include "kernel/fs"
 #include "lock.h"
-#include "virtio_disk.h"
+#include "virtio.h"
 
 namespace bio {
 
 class bcache {
  public:
-  class lock::spinlock lock{};
-  class buf buf[fs::NBUF]{};
   class buf head{};
+  class lock::spinlock lock{};
+  std::array<buf, fs::NBUF> buf{};
 } bcache{};
 
 auto init() -> void {
@@ -66,7 +66,7 @@ auto bget(uint32_t dev, uint32_t blockno) -> class buf * {
 auto bread(uint32_t dev, uint32_t blockno) -> class buf * {
   auto *rs = bget(dev, blockno);
   if (!rs->valid) {
-    virtio_disk::disk_rw(rs, false);
+    virtio::disk_rw(rs, false);
     rs->valid = 1;
   }
   return rs;
@@ -95,7 +95,7 @@ auto bwrite(class buf *buf) -> void {
   if (!buf->lock.holding()) {
     fmt::panic("bio::bwrite: no lock");
   }
-  virtio_disk::disk_rw(buf, true);
+  virtio::disk_rw(buf, true);
 }
 
 auto bpin(class buf *buf) -> void {

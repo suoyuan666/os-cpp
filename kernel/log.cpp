@@ -1,38 +1,39 @@
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <fmt>
 
 #include "bio.h"
-#include "fs.h"
 #include "kernel/fs"
 #include "lock.h"
 #include "proc.h"
 
 namespace log {
 struct logheader {
-  int n;
-  int block[fs::LOGSIZE];
+  int n{0};
+  // int block[fs::LOGSIZE];
+  std::array<int, fs::LOGSIZE> block{};
 };
 
 struct log {
+  uint32_t start{0};
+  uint32_t size{0};
+  uint32_t outstanding{0};  // how many FS sys calls are executing.
+  uint32_t committing{0};   // in commit(), please wait.
+  uint32_t dev{0};
+  struct logheader lh{};
   class lock::spinlock lock{};
-  uint32_t start;
-  uint32_t size;
-  uint32_t outstanding;  // how many FS sys calls are executing.
-  uint32_t committing;   // in commit(), please wait.
-  uint32_t dev;
-  struct logheader lh;
 };
 
 struct log log;
 
 auto rhead() -> void {
   auto *buf = bio::bread(log.dev, log.start);
-  auto *lh = (struct logheader *)(buf->data);
+  auto *lh = reinterpret_cast<struct logheader *>(buf->data.begin());
   log.lh.n = lh->n;
 
   for (auto i{0}; i < log.lh.n; ++i) {
-    log.lh.block[i] = lh->block[i];
+    log.lh.block.at(i) = lh->block.at(i);
   }
 
   bio::brelse(*buf);
@@ -40,11 +41,11 @@ auto rhead() -> void {
 
 auto whead() -> void {
   auto *buf = bio::bread(log.dev, log.start);
-  auto *hb = (struct logheader *)(buf->data);
+  auto *hb = reinterpret_cast<struct logheader *>(buf->data.begin());
 
   hb->n = log.lh.n;
   for (auto i{0}; i < log.lh.n; ++i) {
-    hb->block[i] = log.lh.block[i];
+    hb->block.at(i) = log.lh.block.at(i);
   }
 
   bio::bwrite(buf);
@@ -54,9 +55,9 @@ auto whead() -> void {
 auto install_trans(bool recovering) -> void {
   for (auto i{0}; i < log.lh.n; ++i) {
     auto *lbuf = bio::bread(log.dev, log.start + i + 1);
-    auto *dbuf = bio::bread(log.dev, log.lh.block[i]);
+    auto *dbuf = bio::bread(log.dev, log.lh.block.at(i));
 
-    std::memmove(dbuf->data, lbuf->data, fs::BSIZE);
+    std::memmove(dbuf->data.begin(), lbuf->data.begin(), fs::BSIZE);
     bio::bwrite(dbuf);
     if (recovering) {
       bio::bwrite(dbuf);
@@ -83,9 +84,9 @@ auto init(int dev, struct fs::superblock &supblock) -> void {
 
 auto write_log() -> void {
   for (auto tail{0}; tail < log.lh.n; tail++) {
-    auto *to = bio::bread(log.dev, log.start + tail + 1);  // log block
-    auto *from = bio::bread(log.dev, log.lh.block[tail]);  // cache block
-    std::memmove(to->data, from->data, fs::BSIZE);
+    auto *to = bio::bread(log.dev, log.start + tail + 1);     // log block
+    auto *from = bio::bread(log.dev, log.lh.block.at(tail));  // cache block
+    std::memmove(to->data.begin(), from->data.begin(), fs::BSIZE);
     bio::bwrite(to);  // write the log
     bio::brelse(*from);
     bio::brelse(*to);
@@ -105,10 +106,8 @@ auto commit() -> void {
 auto begin_op() -> void {
   log.lock.acquire();
   while (true) {
-    if (log.committing) {
-      proc::sleep(&log, log.lock);
-    } else if (log.lh.n + (log.outstanding + 1) * fs::MAXOPBLOCKS >
-               fs::LOGSIZE) {
+    if (log.committing ||
+        log.lh.n + (log.outstanding + 1) * fs::MAXOPBLOCKS > fs::LOGSIZE) {
       proc::sleep(&log, log.lock);
     } else {
       log.outstanding += 1;
@@ -153,13 +152,13 @@ auto lwrite(class bio::buf *b) -> void {
   }
   auto i = 0;
   for (; i < log.lh.n; i++) {
-    if (log.lh.block[i] == static_cast<int32_t>(b->blockno)) {
+    if (log.lh.block.at(i) == static_cast<int32_t>(b->blockno)) {
       // log absorption
       break;
     }
   }
-  log.lh.block[i] = static_cast<int>(b->blockno);
-  if (i == log.lh.n) {  // Add new block to log?
+  log.lh.block.at(i) = static_cast<int>(b->blockno);
+  if (i == log.lh.n) {
     bio::bpin(b);
     log.lh.n++;
   }

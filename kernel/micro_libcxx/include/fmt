@@ -145,7 +145,7 @@ auto print(const char *str) -> void;
 
 auto panic(const char *str) -> void;
 
-enum log_level : uint8_t {
+enum class log_level : uint8_t {
   INFO,
   DEBUG,
   WARNNING,
@@ -153,4 +153,30 @@ enum log_level : uint8_t {
 };
 
 auto print_log(log_level level, const char *msg) -> void;
+
+template <typename... Args>
+auto print_log(log_level level, const char *msg, Args... args) -> void {
+  auto locked = pr.locked;
+  if (locked) {
+    pr.lock.acquire();
+  }
+  switch (level) {
+    case log_level::INFO:
+      puts("[INFO]: ");
+      break;
+    case log_level::DEBUG:
+      puts("[DEBUG]: ");
+      break;
+    case log_level::WARNNING:
+      puts("[WARNNING]: ");
+      break;
+    case log_level::ERROR:
+      puts("[ERROR]: ");
+      break;
+  }
+  print_format(msg, args...);
+  if (locked) {
+    pr.lock.release();
+  }
+}
 }  // namespace fmt

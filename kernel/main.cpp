@@ -8,15 +8,16 @@
 
 #include "bio.h"
 #include "console.h"
-#include "file.h"
-#include "fs.h"
 #include "plic.h"
 #include "proc.h"
 #include "trap.h"
-#include "virtio_disk.h"
+#include "virtio.h"
 #include "vm.h"
 
+// NOLINTBEGIN
 __attribute__((aligned(16))) volatile unsigned char stack0[4096 * proc::NCPU];
+// NOLINTEND
+
 volatile static bool started{false};
 
 auto main() -> void;
@@ -35,7 +36,7 @@ extern "C" void start() {
 
   w_mstatus(mstatus);
 
-  w_mepc((uint64_t)main);
+  w_mepc(reinterpret_cast<uint64_t>(main));
 
   w_satp(0);
 
@@ -70,7 +71,7 @@ auto main() -> void {
     plic::inithart();
     bio::init();
     fmt::print_log(fmt::log_level::INFO, "file system init successful\n");
-    virtio_disk::init();
+    virtio::init();
     fmt::print_log(fmt::log_level::INFO, "disk init successful\n");
     proc::user_init();
     __sync_synchronize();
@@ -78,7 +79,7 @@ auto main() -> void {
   } else {
     while (started == false);
     __sync_synchronize();
-    fmt::print("hart {} starting\n", proc::cpuid());
+    fmt::print_log(fmt::log_level::INFO, "hart {} starting\n", proc::cpuid());
     vm::inithart();
     trap::inithart();
     plic::inithart();

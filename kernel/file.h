@@ -26,22 +26,22 @@ static inline auto mkdev(uint32_t m, uint32_t n) -> uint32_t {
 }
 
 struct inode {
-  uint32_t dev;
-  uint32_t inum;
-  int ref;
-  int valid;
-  uint32_t uid;
-  uint32_t gid;
-  unsigned char mask_user;
-  unsigned char mask_group;
-  unsigned char mask_other;
+  uint32_t dev{};
+  uint32_t inum{};
+  int ref{};
+  int valid{};
+  uint32_t uid{};
+  uint32_t gid{};
+  unsigned char mask_user{};
+  unsigned char mask_group{};
+  unsigned char mask_other{};
 
-  int16_t type;
-  int16_t major;
-  int16_t minor;
-  int16_t nlink;
-  uint32_t size;
-  uint32_t addrs[fs::NDIRECT + 1];
+  int16_t type{};
+  int16_t major{};
+  int16_t minor{};
+  int16_t nlink{};
+  uint32_t size{};
+  std::array<uint32_t, fs::NDIRECT + 1> addrs{};
   class lock::sleeplock lock{};
 };
 
@@ -49,8 +49,6 @@ struct devsw {
   int (*read)(bool, uint64_t, int);
   int (*write)(bool, uint64_t, int);
 };
-
-extern struct devsw devsw[];
 
 constexpr uint8_t CONSOLE{1};
 
@@ -79,6 +77,8 @@ constexpr uint32_t O_WRONLY{0x001};
 constexpr uint32_t O_RDWR{0x002};
 constexpr uint32_t O_CREATE{0x200};
 constexpr uint32_t O_TRUNC{0x400};
+
+extern std::array<struct devsw, NDEV> dev_list;
 
 auto alloc() -> struct file*;
 auto dup(struct file* f) -> struct file*;

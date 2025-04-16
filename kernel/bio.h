@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstdint>
 
 #include "kernel/fs"
@@ -15,7 +16,7 @@ class buf {
   class lock::sleeplock lock{};
   class buf *prev{nullptr};  // LRU cache list
   class buf *next{nullptr};
-  unsigned char data[fs::BSIZE]{0};
+  std::array<unsigned char, fs::BSIZE> data{};
 };
 
 auto init() -> void;

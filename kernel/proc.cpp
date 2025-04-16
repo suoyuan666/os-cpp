@@ -22,6 +22,10 @@ extern "C" char trampoline[];
 extern "C" auto swtch(struct proc::context *, struct proc::context *) -> void;
 
 namespace proc {
+struct user_list {
+  struct user user;
+  bool enable{false};
+};
 
 /* $ riscv64-linux-gnu-readelf -x .text build/utils/initcode
  *
@@ -33,9 +37,9 @@ namespace proc {
  */
 
 // clang-format off
-const unsigned char initcode[] = {
-    0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02,
-    0x97, 0x05, 0x00, 0x00, 0x93, 0x85, 0x85, 0x02,
+constexpr std::array<unsigned char, 64> initcode{
+    0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 
+    0x97, 0x05, 0x00, 0x00, 0x93, 0x85, 0x85, 0x02, 
     0x93, 0x08, 0x60, 0x00, 0x73, 0x00, 0x00, 0x00,
     0x93, 0x08, 0x10, 0x00, 0x73, 0x00, 0x00, 0x00,
     0xef, 0xf0, 0x9f, 0xff, 0x2f, 0x62, 0x69, 0x6e,
@@ -44,16 +48,12 @@ const unsigned char initcode[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 // clang-format on
 
-struct process proc_list[NPROC];
-struct process *init_proc{};
-struct cpu cpu_list[NCPU];
 uint32_t next_pid{1};
-struct user root;
+std::array<struct process, NPROC> proc_list{};
+struct process *init_proc{};
+std::array<struct cpu, NCPU> cpu_list{};
 
-struct user_list{
-  struct user user;
-  bool enable{false};
-};
+struct user root;
 std::array<user_list, NPROC> user_list;
 
 class lock::spinlock wait_lock{};
@@ -67,15 +67,16 @@ auto cpuid() -> uint32_t {
 }
 auto curr_cpu() -> struct cpu * {
   auto id = cpuid();
-  return &cpu_list[id];
+  return &cpu_list.at(id);
 }
 auto curr_proc() -> struct process * { return curr_cpu()->proc; }
 
 auto init() -> void {
   for (auto &proc : proc_list) {
     proc.status = proc_status::UNUSED;
-    proc.kernel_stack =
-        vm::KSTACK((int)((uint64_t)&proc - (uint64_t)&proc_list[0]));
+    proc.kernel_stack = vm::KSTACK(
+        static_cast<int>(reinterpret_cast<uint64_t>(&proc) -
+                         reinterpret_cast<uint64_t>(&proc_list.at(0))));
   }
   root.gid = ROOT_ID;
   root.uid = ROOT_ID;
@@ -86,8 +87,11 @@ auto map_stack(uint64_t *kpt) -> void {
     auto opt_pa = vm::kalloc();
     if (opt_pa.has_value()) {
       auto *pa = opt_pa.value();
-      auto va = vm::KSTACK((int)((uint64_t)&proc - (uint64_t)proc_list));
-      vm::map_pages(kpt, va, (uint64_t)pa, PGSIZE, PTE_R | PTE_W);
+      auto va = vm::KSTACK(
+          static_cast<int>(reinterpret_cast<uint64_t>(&proc) -
+                           reinterpret_cast<uint64_t>(&proc_list.at(0))));
+      vm::map_pages(kpt, va, reinterpret_cast<uint64_t>(pa), PGSIZE,
+                    PTE_R | PTE_W);
     } else {
       fmt::panic("proc::map_stack: error");
     }
@@ -108,13 +112,13 @@ auto alloc_pagetable(struct process &p) -> uint64_t * {
     return nullptr;
   }
 
-  if (vm::map_pages(uvm, vm::TRAMPOLINE, (uint64_t)trampoline, PGSIZE,
-                    PTE_R | PTE_X) == false) {
+  if (vm::map_pages(uvm, vm::TRAMPOLINE, reinterpret_cast<uint64_t>(trampoline),
+                    PGSIZE, PTE_R | PTE_X) == false) {
     vm::uvm_free(uvm, 0);
     return nullptr;
   }
-  if (vm::map_pages(uvm, vm::TRAPFRAME, (uint64_t)p.trapframe, PGSIZE,
-                    PTE_R | PTE_W) == false) {
+  if (vm::map_pages(uvm, vm::TRAPFRAME, reinterpret_cast<uint64_t>(p.trapframe),
+                    PGSIZE, PTE_R | PTE_W) == false) {
     vm::uvm_unmap(uvm, vm::TRAMPOLINE, 1, false);
     vm::uvm_free(uvm, 0);
     return nullptr;
@@ -159,7 +163,7 @@ auto alloc_proc() -> struct process * {
         p.lock.release();
         return nullptr;
       }
-      p.trapframe = (struct trapframe *)opt_frame.value();
+      p.trapframe = reinterpret_cast<struct trapframe *>(opt_frame.value());
 
       p.pagetable = alloc_pagetable(p);
       if (p.pagetable == nullptr) {
@@ -169,7 +173,7 @@ auto alloc_proc() -> struct process * {
       }
 
       std::memset(&p.context, 0, sizeof(p.context));
-      p.context.ra = (uint64_t)forkret;
+      p.context.ra = reinterpret_cast<uint64_t>(forkret);
       p.context.sp = p.kernel_stack + PGSIZE;
 
       return &p;
@@ -190,7 +194,7 @@ auto scheduler() -> void {
 
     auto found{false};
     for (uint32_t i{0}; i < NPROC; ++i) {
-      auto *p = &proc_list[i];
+      auto *p = &proc_list.at(i);
       p->lock.acquire();
       if (p->status == proc_status::RUNNABLE) {
         p->status = proc_status::RUNNING;
@@ -256,7 +260,7 @@ auto user_init() -> void {
   auto *p = alloc_proc();
   init_proc = p;
 
-  vm::uvm_first(p->pagetable, (unsigned char *)initcode, sizeof(initcode));
+  vm::uvm_first(p->pagetable, initcode.begin(), sizeof(initcode));
   p->sz = PGSIZE;
 
   p->trapframe->epc = 0;
@@ -264,7 +268,8 @@ auto user_init() -> void {
   p->user = &root;
 
   std::strncpy(p->name, "initcode", sizeof(p->name));
-  p->cwd = fs::namei((char *)"/");
+  constexpr std::array<char, 2> root_dir{"/"};
+  p->cwd = fs::namei(root_dir.begin());
   p->status = proc_status::RUNNABLE;
 
   p->lock.release();
@@ -341,7 +346,8 @@ auto grow(int n) -> int {
   auto sz = p->sz;
 
   if (n > 0) {
-    if ((sz = vm::uvm_alloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
+    sz = vm::uvm_alloc(p->pagetable, sz, sz + n, PTE_W);
+    if (sz == 0) {
       return -1;
     }
   } else if (n < 0) {
@@ -371,8 +377,8 @@ auto fork() -> int32_t {
   np->user = p->user;
 
   for (uint32_t i{0}; i < file::NOFILE; ++i) {
-    if (p->ofile[i] != nullptr) {
-      np->ofile[i] = file::dup(p->ofile[i]);
+    if (p->ofile.at(i) != nullptr) {
+      np->ofile.at(i) = file::dup(p->ofile.at(i));
     }
   }
   np->cwd = fs::idup(p->cwd);
@@ -401,9 +407,9 @@ auto exit(int status) -> void {
   }
 
   for (uint32_t fd{0}; fd < file::NOFILE; ++fd) {
-    if (p->ofile[fd] != nullptr) {
-      file::close(p->ofile[fd]);
-      p->ofile[fd] = nullptr;
+    if (p->ofile.at(fd) != nullptr) {
+      file::close(p->ofile.at(fd));
+      p->ofile.at(fd) = nullptr;
     }
   }
 
@@ -441,7 +447,8 @@ auto wait(uint64_t addr) -> int {
         havekids = true;
         if (cp.status == proc_status::ZOMBIE) {
           auto pid = cp.pid;
-          if (addr != 0 && vm::copyout(p->pagetable, addr, (char *)&cp.xstate,
+          if (addr != 0 && vm::copyout(p->pagetable, addr,
+                                       reinterpret_cast<char *>(&cp.xstate),
                                        sizeof(cp.xstate)) == false) {
             cp.lock.release();
             wait_lock.release();
@@ -495,9 +502,9 @@ auto either_copyout(bool user_dst, uint64_t dst, void *src, uint64_t len)
     -> int {
   auto *p = curr_proc();
   if (user_dst) {
-    return vm::copyout(p->pagetable, dst, (char *)src, len);
+    return vm::copyout(p->pagetable, dst, static_cast<char *>(src), len);
   }
-  std::memmove((char *)dst, src, len);
+  std::memmove(reinterpret_cast<char *>(dst), src, len);
   return 0;
 }
 
@@ -505,9 +512,9 @@ auto either_copyin(void *dst, bool user_dst, uint64_t src, uint64_t len)
     -> int {
   auto *p = curr_proc();
   if (user_dst) {
-    return vm::copyin(p->pagetable, (char *)dst, src, len);
+    return vm::copyin(p->pagetable, reinterpret_cast<char *>(dst), src, len);
   }
-  std::memmove(dst, (char *)src, len);
+  std::memmove(dst, reinterpret_cast<char *>(src), len);
   return 0;
 }
 }  // namespace proc

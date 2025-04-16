@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstdint>
 
 #include "file.h"
@@ -102,7 +103,8 @@ struct process {
   uint64_t *pagetable;
   struct trapframe *trapframe;
   struct context context;
-  struct file::file *ofile[file::NOFILE];
+  // struct file::file *ofile[file::NOFILE];
+  std::array<struct file::file*, file::NOFILE> ofile;
   struct file::inode *cwd;
 };
 

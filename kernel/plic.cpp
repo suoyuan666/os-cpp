@@ -6,18 +6,18 @@
 namespace plic {
 
 auto set_plic_senable(uint32_t hart, uint32_t value) -> void {
-  auto *addr = (uint32_t *)(
+  auto *addr = reinterpret_cast<uint32_t *>(
       static_cast<uint64_t>(hart * 0x100) + vm::PLIC + 0x2080);
   *addr = value;
 }
 
 auto set_plic_spriority(uint32_t hart, uint32_t value) -> void {
-  auto *addr = (uint32_t *)(
+  auto *addr = reinterpret_cast<uint32_t *>(
       static_cast<uint64_t>(hart * 0x2000) + vm::PLIC + 0x201000);
   *addr = value;
 }
 auto get_plic_sclaim(uint32_t id) -> uint32_t {
-  auto *addr = (uint32_t *)(static_cast<uint64_t>(id * 0x2000) +
+  auto *addr = reinterpret_cast<uint32_t *>(static_cast<uint64_t>(id * 0x2000) +
                                             vm::PLIC + 0x201004);
   return *addr;
 }
@@ -29,8 +29,8 @@ auto set_plic_sclaim(uint32_t hart, uint32_t value) -> void {
 }
 
 auto init() -> void {
-  *(uint32_t *)(vm::PLIC + vm::UART_IRQ * 4) = 1;
-  *(uint32_t *)(vm::PLIC + vm::VIRTIO_IRQ * 4) = 1;
+  *reinterpret_cast<uint32_t *>(vm::PLIC + vm::UART_IRQ * 4) = 1;
+  *reinterpret_cast<uint32_t *>(vm::PLIC + vm::VIRTIO_IRQ * 4) = 1;
 }
 
 auto inithart() -> void {

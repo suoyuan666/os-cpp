@@ -1,3 +1,4 @@
+#include <array>
 #include <cstdint>
 #include <optional>
 
@@ -19,29 +20,24 @@ constexpr uint64_t LCR{3};
 constexpr uint64_t LCR_EIGHT_BITS{3U << 0U};
 constexpr uint64_t LCR_BAUD_LATCH{1U << 7U};
 constexpr uint64_t LSR{5};
-// constexpr uint64_t LSR_RX_READY {1<<0};
 constexpr uint64_t LSR_TX_IDLE{1U << 5U};
 
 class lock::spinlock uart_tx_lock{};
 
 constexpr uint32_t UART_TX_BUF_SIZE{32};
-char uart_tx_buf[UART_TX_BUF_SIZE];
+// char uart_tx_buf[UART_TX_BUF_SIZE];
+std::array<char, UART_TX_BUF_SIZE> uart_tx_buf{};
 uint64_t uart_tx_w{0};
 uint64_t uart_tx_r{0};
 
 constexpr uint64_t UART_BASE{0x10000000ULL};
 
-__attribute__((always_inline)) static inline auto reg(const uint64_t offset)
-    -> char* {
-  return (char*)(UART_BASE + offset);
+auto reg(const uint64_t offset) -> char* {
+  return reinterpret_cast<char*>(UART_BASE + offset);
 };
 
-__attribute__((always_inline)) static inline auto read_reg(
-    const uint64_t offset) -> char {
-  return *reg(offset);
-};
-__attribute__((always_inline)) static inline auto write_reg(
-    const uint64_t offset, const uint64_t value) -> void {
+auto read_reg(const uint64_t offset) -> char { return *reg(offset); };
+auto write_reg(const uint64_t offset, const uint64_t value) -> void {
   *reg(offset) = value;
 };
 
@@ -66,7 +62,7 @@ auto start() -> void {
       return;
     }
 
-    int c = uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE];
+    auto c = uart_tx_buf.at(uart_tx_r % UART_TX_BUF_SIZE);
     uart_tx_r += 1;
 
     proc::wakeup(&uart_tx_r);
@@ -82,7 +78,7 @@ auto putc(char c) -> void {
     proc::sleep(&uart_tx_r, uart_tx_lock);
   }
 
-  uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE] = c;
+  uart_tx_buf.at(uart_tx_w % UART_TX_BUF_SIZE) = c;
   ++uart_tx_w;
   start();
   uart_tx_lock.release();

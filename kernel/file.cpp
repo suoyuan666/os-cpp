@@ -1,5 +1,6 @@
 #include "file.h"
 
+#include <array>
 #include <cstdint>
 #include <fmt>
 
@@ -11,11 +12,11 @@
 #include "vm.h"
 
 namespace file {
-struct devsw devsw[NDEV];
+std::array<struct devsw, NDEV> dev_list{};
 
 struct {
   class lock::spinlock lock{};
-  struct file file[NFILE];
+  std::array<struct file, NFILE> file{};
 } ftable;
 
 auto alloc() -> struct file* {
@@ -71,7 +72,7 @@ auto stat(struct file* f, uint64_t addr) -> int {
     fs::ilock(f->ip);
     fs::stati(*f->ip, st);
     fs::iunlock(f->ip);
-    if (vm::copyout(proc::curr_proc()->pagetable, addr, (char*)&st,
+    if (vm::copyout(proc::curr_proc()->pagetable, addr, reinterpret_cast<char*>(&st),
                     sizeof(st)) == false) {
       return -1;
     }
@@ -85,15 +86,15 @@ auto read(struct file* f, uint64_t addr, int n) -> int {
     return -1;
   }
 
-  int rs = 0;
+  uint32_t rs {0};
   if (f->type == file::FD_PIPE) {
     rs = piperead(f->pipe, addr, n);
   } else if (f->type == file::FD_DEVICE) {
     if (f->major < 0 || f->major >= static_cast<int16_t>(NDEV) ||
-        !devsw[f->major].read) {
+        !dev_list.at(f->major).read) {
       return -1;
     }
-    rs = devsw[f->major].read(true, addr, n);
+    rs = dev_list.at(f->major).read(true, addr, n);
   } else if (f->type == file::FD_INODE) {
     fs::ilock(f->ip);
     rs = static_cast<int>(fs::readi(f->ip, true, addr, f->off, n));
@@ -105,7 +106,7 @@ auto read(struct file* f, uint64_t addr, int n) -> int {
     fmt::panic("file::read");
   }
 
-  return rs;
+  return static_cast<int>(rs);
 }
 
 auto write(struct file* f, uint64_t addr, int n) -> int {
@@ -116,23 +117,24 @@ auto write(struct file* f, uint64_t addr, int n) -> int {
   auto rs{0};
   auto r{0};
   if (f->type == file::FD_PIPE) {
-    rs = pipewrite(f->pipe, addr, n);
+    rs = static_cast<int>(pipewrite(f->pipe, addr, n));
   } else if (f->type == T_DEVICE) {
     if (f->major < 0 || f->major >= static_cast<int16_t>(NDEV) ||
-        !devsw[f->major].write) {
+        !dev_list.at(f->major).write) {
       return -1;
     }
-    rs = devsw[f->major].write(1, addr, n);
+    rs = dev_list.at(f->major).write(true, addr, n);
   } else if (f->type == ::file::file::FD_INODE) {
     int max = ((fs::MAXOPBLOCKS - 1 - 1 - 2) / 2) * fs::BSIZE;
     int i = 0;
     while (i < n) {
-      int n1 = n - i;
+      auto n1 = n - i;
       if (n1 > max) n1 = max;
 
       log::begin_op();
       fs::ilock(f->ip);
-      if ((r = fs::writei(f->ip, true, addr + i, f->off, n1)) > 0) {
+      r = fs::writei(f->ip, true, addr + i, f->off, n1);
+      if (r > 0) {
         f->off += r;
       }
       fs::iunlock(f->ip);

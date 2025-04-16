@@ -42,9 +42,11 @@ auto spinlock::acquire() -> void {
   if (holding()) {
     fmt::panic("lock::acquire: already holding the lock");
   }
-  while (__sync_lock_test_and_set(&locked, true) != false) {
-    ;
-  }
+
+  // NOLINTBEGIN
+  while (__sync_lock_test_and_set(&locked, true) != false);
+  // NOLINTEND
+
   __sync_synchronize();
 
   cpu = proc::curr_cpu();
@@ -59,7 +61,9 @@ auto spinlock::release() -> void {
 
   __sync_synchronize();
 
+  // NOLINTBEGIN
   __sync_lock_release(&locked);
+  // NOLINTEND
 
   pop_off();
 }

@@ -1,5 +1,5 @@
+#include <array>
 #include <cstdint>
-#include <cstring>
 #include <fmt>
 
 #include "arch/riscv.h"
@@ -19,7 +19,8 @@ auto fetch_addr(uint64_t addr, uint64_t *ip) -> bool {
   if (addr >= proc->sz || addr + sizeof(uint64_t) > proc->sz) {
     return false;
   }
-  if (vm::copyin(proc->pagetable, (char *)ip, addr, sizeof(*ip)) == false) {
+  if (vm::copyin(proc->pagetable, reinterpret_cast<char *>(ip), addr,
+                 sizeof(*ip)) == false) {
     return false;
   }
   return true;
@@ -88,8 +89,8 @@ auto alloc_fd(struct file::file *&f) -> int {
 
   auto fd{0};
   for (; fd < static_cast<int>(file::NOFILE); ++fd) {
-    if (p->ofile[fd] == nullptr) {
-      p->ofile[fd] = f;
+    if (p->ofile.at(fd) == nullptr) {
+      p->ofile.at(fd) = f;
       return fd;
     }
   }
@@ -104,7 +105,7 @@ auto get_fd(uint32_t argu_no, struct file::file *&f) -> int {
   if (fd < 0 || fd >= static_cast<int>(file::NOFILE)) {
     return -1;
   }
-  tf = proc::curr_proc()->ofile[fd];
+  tf = proc::curr_proc()->ofile.at(fd);
   if (tf == nullptr) {
     return -1;
   }
@@ -114,16 +115,17 @@ auto get_fd(uint32_t argu_no, struct file::file *&f) -> int {
 
 auto create(char *path, int type, int16_t major, int16_t minor)
     -> struct file::inode * {
-  char name[fs::DIRSIZ];
+  // char name[fs::DIRSIZ];
+  std::array<char, fs::DIRSIZ> name{};
 
-  auto *dp = fs::nameiparent(path, name);
+  auto *dp = fs::nameiparent(path, name.begin());
   if (dp == nullptr) {
     return nullptr;
   }
 
   fs::ilock(dp);
 
-  auto *ip = fs::dir_lookup(dp, name, nullptr);
+  auto *ip = fs::dir_lookup(dp, name.begin(), nullptr);
   if (ip != nullptr) {
     fs::iunlockput(dp);
     fs::ilock(ip);
@@ -135,7 +137,7 @@ auto create(char *path, int type, int16_t major, int16_t minor)
     return nullptr;
   }
 
-  ip = fs::ialloc(dp->dev, type);
+  ip = fs::ialloc(dp->dev, static_cast<int16_t>(type));
   if (ip == nullptr) {
     fs::iunlockput(dp);
     return nullptr;
@@ -154,8 +156,10 @@ auto create(char *path, int type, int16_t major, int16_t minor)
   fs::iupdate(ip);
 
   if (type == file::T_DIR) {
-    if (fs::dir_link(ip, (char *)".", ip->inum) < 0 ||
-        fs::dir_link(ip, (char *)"..", ip->inum) < 0) {
+    const std::array<char, 2> curr_cwd{"."};
+    const std::array<char, 3> prev_cwd{".."};
+    if (fs::dir_link(ip, curr_cwd.begin(), ip->inum) < 0 ||
+        fs::dir_link(ip, prev_cwd.begin(), ip->inum) < 0) {
       ip->nlink = 0;
       fs::iupdate(ip);
       fs::iunlockput(ip);
@@ -164,7 +168,7 @@ auto create(char *path, int type, int16_t major, int16_t minor)
     }
   }
 
-  if (fs::dir_link(dp, name, ip) < 0) {
+  if (fs::dir_link(dp, name.begin(), ip) < 0) {
     ip->nlink = 0;
     fs::iupdate(ip);
     fs::iunlockput(ip);
@@ -182,66 +186,72 @@ auto create(char *path, int type, int16_t major, int16_t minor)
   return ip;
 }
 
-auto fail_work4exec(char *argv[loader::MAXARGV], uint32_t size) -> void {
-  for (uint32_t i = 0; i < size && argv[i] != nullptr; ++i) {
-    vm::kfree(argv[i]);
+auto fail_work4exec(std::array<char *, loader::MAXARGV> &argv) -> void {
+  for (auto &argu : argv) {
+    if (argu == nullptr) break;
+    vm::kfree(argu);
   }
 }
 
 auto sys_exec() -> uint64_t {
-  char path[file::MAXPATH]{};
-  char *argv[loader::MAXARGV]{};
+  std::array<char, file::MAXPATH> path{};
+  std::array<char *, loader::MAXARGV> argv{};
 
   auto uargv = get_argu(1);
   uint64_t path_addr = get_argu(0);
-  if (fetch_str(path_addr, path, file::MAXPATH) == false) {
+  if (fetch_str(path_addr, path.begin(), file::MAXPATH) == false) {
     return -1;
   }
-  std::memset(argv, 0, sizeof(argv));
 
   uint32_t i{0};
   uint64_t uarg = 0;
   while (true) {
-    if (i > sizeof(argv) / sizeof(char *)) {
-      fail_work4exec(argv, sizeof(argv) / sizeof(char *));
+    if (i > argv.size()) {
+      fail_work4exec(argv);
       return -1;
     }
-    if (fetch_addr(uargv + sizeof(uint64_t) * i, (uint64_t *)&uarg) == false) {
-      fail_work4exec(argv, sizeof(argv) / sizeof(char *));
+    if (fetch_addr(uargv + sizeof(uint64_t) * i, &uarg) == false) {
+      fail_work4exec(argv);
       return -1;
     }
     if (uarg == 0) {
-      argv[i] = nullptr;
+      argv.at(i) = nullptr;
       break;
     }
 
-    argv[i] = (char *)vm::kalloc().value();
-    if (argv[i] == nullptr) {
-      fail_work4exec(argv, sizeof(argv) / sizeof(char *));
+    auto opt_argv = vm::kalloc();
+    if (!opt_argv.has_value()) {
+      fmt::panic("sys_exec: no memory");
+    }
+    argv.at(i) = reinterpret_cast<char *>(opt_argv.value());
+    if (argv.at(i) == nullptr) {
+      fail_work4exec(argv);
       return -1;
     }
 
-    if (fetch_str(uarg, argv[i], PGSIZE) == false) {
-      fail_work4exec(argv, sizeof(argv) / sizeof(char *));
+    if (fetch_str(uarg, argv.at(i), PGSIZE) == false) {
+      fail_work4exec(argv);
       return -1;
     }
 
     ++i;
   }
 
-  auto *ip = fs::namei(path);
+  auto *ip = fs::namei(path.begin());
   fs::ilock(ip);
   if (!check_permission_for_file(ip, 1U)) {
     fs::iunlock(ip);
     return -1;
   }
 
-  auto rs = loader::exec(ip, path, argv);
+  auto rs = loader::exec(ip, path.begin(), argv.begin());
+
   if (rs == -1) {
     fmt::print("sys_exec: exec call failed\n");
   }
-  for (i = 0; i < sizeof(argv) / sizeof(char *) && argv[i] != nullptr; ++i) {
-    vm::kfree(argv[i]);
+  for (auto &argu : argv) {
+    if (argu == nullptr) break;
+    vm::kfree(argu);
   }
   return rs;
 }
@@ -262,25 +272,29 @@ auto sys_wait() -> uint64_t {
 auto sys_pipe() -> uint64_t {
   struct file::file *rf = nullptr;
   struct file::file *wf = nullptr;
-  int fd0 = 0, fd1 = 0;
   auto *p = proc::curr_proc();
 
   uint64_t fdarray = get_argu(0);
   if (file::pipealloc(&rf, &wf) < 0) {
     return -1;
   }
-  fd0 = -1;
-  if ((fd0 = alloc_fd(rf)) < 0 || (fd1 = alloc_fd(wf)) < 0) {
-    if (fd0 >= 0) p->ofile[fd0] = 0;
+
+  auto fd0 = alloc_fd(rf);
+  auto fd1 = alloc_fd(wf);
+  if (fd0 < 0 || fd1 < 0) {
+    if (fd0 >= 0) p->ofile.at(fd0) = nullptr;
     file::close(rf);
     file::close(wf);
     return -1;
   }
-  if (vm::copyout(p->pagetable, fdarray, (char *)&fd0, sizeof(fd0)) == false ||
-      vm::copyout(p->pagetable, fdarray + sizeof(fd0), (char *)&fd1,
-                  sizeof(fd1)) == false) {
-    p->ofile[fd0] = nullptr;
-    p->ofile[fd1] = nullptr;
+  // clang-format off
+  if (!vm::copyout(p->pagetable, fdarray, 
+                   reinterpret_cast<char *>(&fd0), sizeof(fd0))||
+      !vm::copyout(p->pagetable, fdarray + sizeof(fd0),
+                   reinterpret_cast<char *>(&fd1), sizeof(fd1))) {
+    // clang-format on
+    p->ofile.at(fd0) = nullptr;
+    p->ofile.at(fd1) = nullptr;
     file::close(rf);
     file::close(wf);
     return -1;
@@ -316,18 +330,19 @@ auto sys_fstat() -> uint64_t {
 }
 
 auto sys_chdir() -> uint64_t {
-  char path[file::MAXPATH];
-  struct file::inode *ip;
+  std::array<char, file::MAXPATH> path{};
+  struct file::inode *ip = nullptr;
   auto *p = proc::curr_proc();
 
   log::begin_op();
 
   uint64_t addr = get_argu(0);
-  if (fetch_str(addr, path, file::MAXPATH) == false) {
+  if (fetch_str(addr, path.begin(), file::MAXPATH) == false) {
     log::end_op();
     return -1;
   }
-  if ((ip = fs::namei(path)) == nullptr) {
+  ip = fs::namei(path.begin());
+  if (ip == nullptr) {
     log::end_op();
     return -1;
   }
@@ -347,8 +362,8 @@ auto sys_chdir() -> uint64_t {
 auto fd_alloc(struct file::file *&f) -> int {
   auto *p = proc::curr_proc();
   for (int fd = 0; fd < static_cast<int>(file::NOFILE); ++fd) {
-    if (p->ofile[fd] == nullptr) {
-      p->ofile[fd] = f;
+    if (p->ofile.at(fd) == nullptr) {
+      p->ofile.at(fd) = f;
       return fd;
     }
   }
@@ -387,11 +402,11 @@ auto sys_sleep() -> uint64_t { return 0; }
 auto sys_uptime() -> uint64_t { return 0; }
 
 auto sys_open() -> uint64_t {
-  char path[file::MAXPATH]{};
-  int mode = static_cast<int>(get_argu(1));
+  std::array<char, file::MAXPATH> path{};
+  auto mode = static_cast<uint32_t>(get_argu(1));
 
   uint64_t addr = get_argu(0);
-  if (fetch_str(addr, path, file::MAXPATH) == false) {
+  if (fetch_str(addr, path.begin(), file::MAXPATH) == false) {
     return -1;
   }
 
@@ -399,13 +414,14 @@ auto sys_open() -> uint64_t {
 
   struct file::inode *ip = nullptr;
   if (mode & file::O_CREATE) {
-    ip = create(path, file::T_FILE, 0, 0);
+    ip = create(path.begin(), file::T_FILE, 0, 0);
     if (ip == nullptr) {
       log::end_op();
       return -1;
     }
   } else {
-    if ((ip = fs::namei(path)) == nullptr) {
+    ip = fs::namei(path.begin());
+    if (ip == nullptr) {
       log::end_op();
       return -1;
     }
@@ -491,19 +507,20 @@ auto sys_write() -> uint64_t {
 
   return file::write(f, addr, size);
 }
+
 auto sys_mknod() -> uint64_t {
-  char path[file::MAXPATH];
+  std::array<char, file::MAXPATH> path{};
 
   log::begin_op();
 
-  int major = static_cast<int>(get_argu(1));
-  int minor = static_cast<int>(get_argu(2));
+  auto major = static_cast<int16_t>(get_argu(1));
+  auto minor = static_cast<int16_t>(get_argu(2));
 
   auto addr = get_argu(0);
-  if (!fetch_str(addr, path, fs::MAXFILE)) {
+  if (!fetch_str(addr, path.begin(), fs::MAXFILE)) {
     return -1;
   }
-  auto *ip = create(path, file::T_DEVICE, major, minor);
+  auto *ip = create(path.begin(), file::T_DEVICE, major, minor);
   if (ip == nullptr) {
     return -1;
   }
@@ -512,20 +529,23 @@ auto sys_mknod() -> uint64_t {
   log::end_op();
   return 0;
 }
+
 auto sys_unlink() -> uint64_t { return 0; }
 auto sys_link() -> uint64_t { return 0; }
+
 auto sys_mkdir() -> uint64_t {
-  char path[file::MAXPATH];
-  struct file::inode *ip;
+  std::array<char, file::MAXPATH> path{};
 
   log::begin_op();
 
   uint64_t addr = get_argu(0);
-  if (fetch_str(addr, path, file::MAXPATH) == false) {
+  if (fetch_str(addr, path.begin(), file::MAXPATH) == false) {
     log::end_op();
     return -1;
   }
-  if ((ip = create(path, file::T_DIR, 0, 0)) == 0) {
+
+  auto *ip = create(path.begin(), file::T_DIR, 0, 0);
+  if (ip == nullptr) {
     log::end_op();
     return -1;
   }
@@ -541,13 +561,14 @@ auto sys_mkdir() -> uint64_t {
   log::end_op();
   return 0;
 }
+
 auto sys_close() -> uint64_t {
   struct file::file *f = nullptr;
   auto fd = get_fd(0, f);
   if (fd == -1) {
     return -1;
   }
-  proc::curr_proc()->ofile[fd] = nullptr;
+  proc::curr_proc()->ofile.at(fd) = nullptr;
   file::close(f);
   return 0;
 }

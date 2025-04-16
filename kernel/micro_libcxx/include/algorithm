@@ -1,5 +1,7 @@
 // -*- C++ -*-
 
+#include "__algorithm/__min.h"
+
 namespace std {
 template <typename T>
 struct is_nothrow_move_constructible;

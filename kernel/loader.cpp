@@ -1,5 +1,6 @@
 #include "loader.h"
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 
@@ -27,7 +28,7 @@ auto loadseg(uint64_t *pagetable, uint64_t va, struct file::inode *ip,
     } else {
       n = PGSIZE;
     }
-    if (fs::readi(ip, false, (uint64_t)pa, offset + i, n) != n) {
+    if (fs::readi(ip, false, pa, offset + i, n) != n) {
       return false;
     }
   }
@@ -35,7 +36,7 @@ auto loadseg(uint64_t *pagetable, uint64_t va, struct file::inode *ip,
   return true;
 }
 
-auto flags2perm(uint32_t flags) -> uint32_t {
+auto flags2perm(const uint32_t flags) -> uint32_t {
   uint32_t perm = 0;
   if (flags & 0x1U) {
     perm = PTE_X;
@@ -61,7 +62,8 @@ auto exec(struct file::inode *ip, char *path, char **argv) -> int {
   char *s = nullptr, *last = nullptr;
   int i = 0;
   uint64_t off = 0;
-  uint64_t argc = 0, sz = 0, sp = 0, ustack[MAXARGV], stackbase = 0;
+  uint64_t argc = 0, sz = 0, sp = 0, stackbase = 0;
+  std::array<uint64_t, MAXARGV> ustack{};
   struct elfhdr elf{};
   struct proghdr ph{};
   uint64_t *pagetable = nullptr;
@@ -70,7 +72,7 @@ auto exec(struct file::inode *ip, char *path, char **argv) -> int {
 
   log::begin_op();
 
-  if (fs::readi(ip, false, (uint64_t)&elf, 0, sizeof(elf)) != sizeof(elf)) {
+  if (fs::readi(ip, false, reinterpret_cast<uint64_t>(&elf), 0, sizeof(elf)) != sizeof(elf)) {
     fail_work(pagetable, ip, sz);
     return -1;
   }
@@ -87,7 +89,7 @@ auto exec(struct file::inode *ip, char *path, char **argv) -> int {
   }
 
   for (i = 0, off = elf.phoff; i < elf.phnum; i++, off += sizeof(ph)) {
-    if (fs::readi(ip, false, (uint64_t)&ph, off, sizeof(ph)) != sizeof(ph)) {
+    if (fs::readi(ip, false, reinterpret_cast<uint64_t>(&ph), off, sizeof(ph)) != sizeof(ph)) {
       fail_work(pagetable, ip, sz);
       return -1;
     }
@@ -139,7 +141,6 @@ auto exec(struct file::inode *ip, char *path, char **argv) -> int {
   sp = sz;
   stackbase = sp - static_cast<uint64_t>(USERSTACK * PGSIZE);
 
-  // Push argument strings, prepare rest of stack in ustack.
   for (argc = 0; argv[argc]; argc++) {
     if (argc >= MAXARGV) {
       fail_work(pagetable, ip, sz);
@@ -156,29 +157,24 @@ auto exec(struct file::inode *ip, char *path, char **argv) -> int {
       fail_work(pagetable, ip, sz);
       return -1;
     }
-    ustack[argc] = sp;
+    ustack.at(argc) = sp;
   }
-  ustack[argc] = 0;
+  ustack.at(argc) = 0;
 
-  // push the array of argv[] pointers.
   sp -= (argc + 1) * sizeof(uint64_t);
   sp -= sp % 16;
   if (sp < stackbase) {
     fail_work(pagetable, ip, sz);
     return -1;
   }
-  if (vm::copyout(pagetable, sp, (char *)ustack,
+  if (vm::copyout(pagetable, sp, reinterpret_cast<char *>(ustack.begin()),
                   (argc + 1) * sizeof(uint64_t)) == false) {
     fail_work(pagetable, ip, sz);
     return -1;
   }
 
-  // arguments to user main(argc, argv)
-  // argc is returned via the system call return
-  // value, which goes in a0.
   p->trapframe->a1 = sp;
 
-  // Save program name for debugging.
   for (last = s = path; *s; s++) {
     if (*s == '/') {
       last = s + 1;
@@ -186,7 +182,6 @@ auto exec(struct file::inode *ip, char *path, char **argv) -> int {
   }
   std::strncpy(p->name, last, sizeof(p->name));
 
-  // Commit to the user image.
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;
   p->sz = sz;

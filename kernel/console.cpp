@@ -1,5 +1,6 @@
 #include "console.h"
 
+#include <array>
 #include <cstdint>
 
 #include "file.h"
@@ -16,8 +17,7 @@ constexpr auto C = [](int x) -> int { return ((x) - '@'); };
 struct {
   class lock::spinlock lock{};
 
-  // input
-  char buf[INPUT_BUF_SIZE]{};
+  std::array<char, INPUT_BUF_SIZE> buf{};
   uint32_t r{};  // Read index
   uint32_t w{};  // Write index
   uint32_t e{};  // Edit index
@@ -60,7 +60,7 @@ auto read(bool user_dst, uint64_t dst, int n) -> int {
       proc::sleep(&cons.r, cons.lock);
     }
 
-    auto c = cons.buf[cons.r++ % INPUT_BUF_SIZE];
+    auto c = cons.buf.at(cons.r++ % INPUT_BUF_SIZE);
 
     if (c == C('D')) {  // end-of-file
       if (n < target) {
@@ -97,7 +97,7 @@ void intr(int c) {
   switch (c) {
     case C('U'):  // Kill line.
       while (cons.e != cons.w &&
-             cons.buf[(cons.e - 1) % INPUT_BUF_SIZE] != '\n') {
+             cons.buf.at((cons.e - 1) % INPUT_BUF_SIZE) != '\n') {
         cons.e--;
         putc(BACKSPACE);
       }
@@ -113,15 +113,11 @@ void intr(int c) {
       if (c != 0 && cons.e - cons.r < INPUT_BUF_SIZE) {
         c = (c == '\r') ? '\n' : c;
 
-        // echo back to the user.
         putc(c);
 
-        // store for consumption by consoleread().
-        cons.buf[cons.e++ % INPUT_BUF_SIZE] = c;
+        cons.buf.at(cons.e++ % INPUT_BUF_SIZE) = c;
 
         if (c == '\n' || c == C('D') || cons.e - cons.r == INPUT_BUF_SIZE) {
-          // wake up consoleread() if a whole line (or end-of-file)
-          // has arrived.
           cons.w = cons.e;
           proc::wakeup(&cons.r);
         }
@@ -135,9 +131,7 @@ void intr(int c) {
 auto init() -> void {
   uart::init();
 
-  // connect read and write system calls
-  // to consoleread and consolewrite.
-  file::devsw[file::CONSOLE].read = read;
-  file::devsw[file::CONSOLE].write = write;
+  file::dev_list[file::CONSOLE].read = read;
+  file::dev_list[file::CONSOLE].write = write;
 }
 }  // namespace console

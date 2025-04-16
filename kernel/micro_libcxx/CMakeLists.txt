@@ -4,6 +4,7 @@ set (
     KLIBCXX_SRC
     ${PROJECT_SOURCE_DIR}/kernel/micro_libcxx/src/cstring.cpp
     ${PROJECT_SOURCE_DIR}/kernel/micro_libcxx/src/fmt.cpp
+    ${PROJECT_SOURCE_DIR}/kernel/micro_libcxx/src/new.cpp
 )
 
 set(

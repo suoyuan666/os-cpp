@@ -1,9 +1,10 @@
 #pragma once
+#include <array>
 #include <cstdint>
 
 #include "bio.h"
 
-namespace virtio_disk {
+namespace virtio {
 //
 // virtio device definitions.
 // for both the mmio interface, and virtio descriptors.
@@ -68,9 +69,9 @@ constexpr uint32_t VRING_DESC_F_WRITE {2};  // device writes (vs read)
 
 // the (entire) avail ring, from the spec.
 struct virtq_avail {
-  uint16_t flags;      // always zero
-  uint16_t idx;        // driver will write ring[idx] next
-  uint16_t ring[NUM];  // descriptor numbers of chain heads
+  uint16_t flags;                 // always zero
+  uint16_t idx;                   // driver will write ring[idx] next
+  std::array<uint16_t, NUM> ring; // descriptor numbers of chain heads
   uint16_t unused;
 };
 
@@ -84,7 +85,7 @@ struct virtq_used_elem {
 struct virtq_used {
   uint16_t flags;  // always zero
   uint16_t idx;    // device increments when it adds a ring[] entry
-  struct virtq_used_elem ring[NUM];
+  std::array<struct virtq_used_elem, NUM> ring;
 };
 
 // these are specific to virtio block devices, e.g. disks,
@@ -105,4 +106,4 @@ struct virtio_blk_req {
 auto init() -> void;
 auto disk_rw(class bio::buf *b, bool write) -> void;
 auto virtio_disk_intr() -> void;
-}  // namespace virtio_disk
+}  // namespace virtio

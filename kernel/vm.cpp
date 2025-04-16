@@ -26,8 +26,10 @@ struct {
 auto kvm_make() -> std::optional<uint64_t *>;
 
 auto kinit() -> void {
-  for (auto *p_start = (char *)PG_ROUND_UP((uint64_t)end);
-       p_start + PGSIZE <= (char *)PHY_END; p_start += PGSIZE) {
+  for (auto *p_start = reinterpret_cast<char *>(
+           PG_ROUND_UP(reinterpret_cast<uint64_t>(end)));
+       p_start + PGSIZE <= reinterpret_cast<char *>(PHY_END);
+       p_start += PGSIZE) {
     kfree(p_start);
   }
 }
@@ -46,8 +48,8 @@ auto kalloc() -> std::optional<uint64_t *> {
   auto *tmp = kmem.freelist;
   if (tmp) {
     kmem.freelist = tmp->next;
-    std::memset((char *)tmp, 5, PGSIZE);  // fill with junk
-    auto rs_val = (uint64_t *)(tmp);
+    std::memset(reinterpret_cast<char *>(tmp), 5, PGSIZE);  // fill with junk
+    auto *rs_val = reinterpret_cast<uint64_t *>(tmp);
     kmem.lock.release();
     return {rs_val};
   }
@@ -78,16 +80,19 @@ auto kvm_make() -> std::optional<uint64_t *> {
     if (map_pages(kpt, PLIC, PLIC, 0x4000000, PTE_R | PTE_W) == false) {
       fmt::panic("vm::kvm_make: PLIC");
     }
-    if (map_pages(kpt, KERNEL_BASE, KERNEL_BASE, (uint64_t)etext - KERNEL_BASE,
+    if (map_pages(kpt, KERNEL_BASE, KERNEL_BASE,
+                  reinterpret_cast<uint64_t>(etext) - KERNEL_BASE,
                   PTE_R | PTE_X) == false) {
       fmt::panic("vm::kvm_make: KERNEL_BASE");
     }
-    if (map_pages(kpt, (uint64_t)etext, (uint64_t)etext,
-                  PHY_END - (uint64_t)etext, PTE_R | PTE_W) == false) {
+    if (map_pages(kpt, reinterpret_cast<uint64_t>(etext),
+                  reinterpret_cast<uint64_t>(etext),
+                  PHY_END - reinterpret_cast<uint64_t>(etext),
+                  PTE_R | PTE_W) == false) {
       fmt::panic("vm::kvm_make: etext");
     }
-    if (map_pages(kpt, TRAMPOLINE, (uint64_t)trampoline, PGSIZE,
-                  PTE_R | PTE_X) == false) {
+    if (map_pages(kpt, TRAMPOLINE, reinterpret_cast<uint64_t>(trampoline),
+                  PGSIZE, PTE_R | PTE_X) == false) {
       fmt::panic("vm::kvm_make: TRAMPOLINE");
     }
     proc::map_stack(kpt);
@@ -150,7 +155,7 @@ auto free_walk(uint64_t *pagetable) -> void {
     auto pte = pagetable[i];
     if ((pte & PTE_V) && (pte & (PTE_R | PTE_W | PTE_X)) == 0) {
       auto child = PTE2PA(pte);
-      free_walk((uint64_t *)child);
+      free_walk(reinterpret_cast<uint64_t *>(child));
       pagetable[i] = 0;
     } else if (pte & PTE_V) {
       fmt::panic("vm::free_walk: leaf");
@@ -209,14 +214,16 @@ auto uvm_create() -> uint64_t * {
   return rs;
 }
 
-auto uvm_first(uint64_t *pagetable, unsigned char *src, uint32_t size) -> void {
+auto uvm_first(uint64_t *pagetable, const unsigned char *src, uint32_t size)
+    -> void {
   if (size > PGSIZE) {
     fmt::panic("uvm_first: size > PGSIZE");
   }
 
-  auto *mem = (char *)kalloc().value();
+  auto *mem = reinterpret_cast<char *>(kalloc().value());
   std::memset(mem, 0, PGSIZE);
-  map_pages(pagetable, 0, (uint64_t)mem, PGSIZE, PTE_R | PTE_W | PTE_X | PTE_U);
+  map_pages(pagetable, 0, reinterpret_cast<uint64_t>(mem), PGSIZE,
+            PTE_R | PTE_W | PTE_X | PTE_U);
   std::memmove(mem, src, size);
 }
 
@@ -241,7 +248,7 @@ auto uvm_unmap(uint64_t *pagetable, uint64_t va, uint64_t npages, bool do_free)
     }
     if (do_free) {
       auto pa = PTE2PA(*pte);
-      kfree((void *)pa);
+      kfree(reinterpret_cast<void *>(pa));
     }
     *pte = 0;
   }
@@ -269,8 +276,8 @@ auto uvm_alloc(uint64_t *pagetable, uint64_t oldsz, const uint64_t newsz,
     }
     auto *mem = opt_mem.value();
     std::memset(mem, 0, PGSIZE);
-    if (map_pages(pagetable, a, (uint64_t)mem, PGSIZE, PTE_R | PTE_U | xperm) ==
-        false) {
+    if (map_pages(pagetable, a, reinterpret_cast<uint64_t>(mem), PGSIZE,
+                  PTE_R | PTE_U | xperm) == false) {
       kfree(mem);
       uvm_dealloc(pagetable, a, oldsz);
       return 0;
@@ -315,9 +322,10 @@ auto uvm_copy(uint64_t *old_pagetable, uint64_t *new_pagetable, uint64_t sz)
       return false;
     }
     auto *mem = opt_mem.value();
-    std::memmove(mem, (char *)pa, PGSIZE);
+    std::memmove(mem, reinterpret_cast<char *>(pa), PGSIZE);
 
-    if (map_pages(new_pagetable, i, (uint64_t)mem, PGSIZE, flags) == false) {
+    if (map_pages(new_pagetable, i, reinterpret_cast<uint64_t>(mem), PGSIZE,
+                  flags) == false) {
       uvm_unmap(new_pagetable, i, i / PGSIZE, true);
       return false;
     }
@@ -358,7 +366,7 @@ auto copyout(uint64_t *pagetable, uint64_t dstva, char *src, uint64_t len)
       n = len;
     }
 
-    std::memmove((void *)(pa0 + (dstva - va0)), src, n);
+    std::memmove(reinterpret_cast<void *>(pa0 + (dstva - va0)), src, n);
 
     len -= n;
     src += n;
@@ -387,7 +395,7 @@ auto copyin(uint64_t *pagetable, char *dst, uint64_t srcva, uint64_t len)
       n = len;
     }
 
-    std::memmove(dst, (void *)(pa0 + (srcva - va0)), n);
+    std::memmove(dst, reinterpret_cast<void *>(pa0 + (srcva - va0)), n);
 
     len -= n;
     dst += n;
@@ -413,15 +421,15 @@ auto copyinstr(uint64_t *pagetable, char *dst, uint64_t srcva, uint64_t len)
       n = len;
     }
 
-    auto *p = (char *)(pa0 + (srcva - va0));
+    auto *p = reinterpret_cast<char *>(pa0 + (srcva - va0));
     while (n > 0) {
       if (*p == '\0') {
         *dst = '\0';
         fetch_null = true;
         break;
-      } else {
-        *dst = *p;
       }
+      *dst = *p;
+
       --n;
       --len;
       ++p;

@@ -1,8 +1,9 @@
 #include "syscall.h"
 
+#include <array>
 #include <cstdint>
-
 #include <fmt>
+
 #include "proc.h"
 
 namespace syscall {
@@ -31,22 +32,20 @@ extern auto sys_close() -> uint64_t;
 extern auto sys_setuid() -> uint64_t;
 extern auto sys_setgid() -> uint64_t;
 
-
-static uint64_t (*syscalls[])(void) = {
-    sys_fork,  sys_exit,   sys_wait,  sys_pipe,  sys_read,   sys_kill,
-    sys_exec,  sys_fstat,  sys_chdir, sys_dup,   sys_getpid, sys_sbrk,
-    sys_sleep, sys_uptime, sys_open,  sys_write, sys_mknod,  sys_unlink,
-    sys_link,  sys_mkdir,  sys_close, sys_setuid, sys_setgid,
-};
+std::array<uint64_t (*)(void), 23> syscalls{
+    sys_fork,  sys_exit,   sys_wait,  sys_pipe,   sys_read,   sys_kill,
+    sys_exec,  sys_fstat,  sys_chdir, sys_dup,    sys_getpid, sys_sbrk,
+    sys_sleep, sys_uptime, sys_open,  sys_write,  sys_mknod,  sys_unlink,
+    sys_link,  sys_mkdir,  sys_close, sys_setuid, sys_setgid};
 
 auto syscall() -> void {
   auto *p = proc::curr_proc();
 
   auto num = p->trapframe->a7;
   if (num <= sizeof(syscalls)) {
-    p->trapframe->a0 = syscalls[num]();
+    p->trapframe->a0 = syscalls.at(num)();
   } else {
     fmt::print("{} {} {} unknown syscall", p->pid, p->name, num);
   }
 }
-}//  namespace syscall
+}  //  namespace syscall

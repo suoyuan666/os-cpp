@@ -12,7 +12,7 @@
 #include "syscall.h"
 #include "trap.h"
 #include "uart.h"
-#include "virtio_disk.h"
+#include "virtio.h"
 #include "vm.h"
 
 extern "C" auto kernelvec() -> void;
@@ -25,16 +25,16 @@ uint32_t ticks;
 
 auto devintr() -> int;
 
-auto inithart() -> void { w_stvec((uint64_t)kernelvec); }
+auto inithart() -> void { w_stvec(reinterpret_cast<uint64_t>(kernelvec)); }
 
 auto user_trap() -> void {
   if ((r_sstatus() & SSTATUS_SPP) != 0) {
     fmt::panic("user_trap: not from user mode");
   }
 
-  int which_dev = 0;
+  int which_dev{0};
 
-  w_stvec((uint64_t)kernelvec);
+  w_stvec(reinterpret_cast<uint64_t>(kernelvec));
 
   auto *p = proc::curr_proc();
   p->trapframe->epc = r_sepc();
@@ -46,13 +46,15 @@ auto user_trap() -> void {
     p->trapframe->epc += 4;
     intr_on();
     syscall::syscall();
-  } else if ((which_dev = devintr()) != 0) {
-    // ok
   } else {
-    fmt::print("usertrap(): unexpected scause 0x{x}, sepc=0x{x}, stval=0x{x}\n",
-               r_scause(), r_sepc(), r_stval());
-    fmt::print("            pid: {}, name: {}\n", p->pid, p->name);
-    proc::set_killed(p);
+    which_dev = devintr();
+    if (which_dev == 0) {
+      fmt::print(
+          "usertrap(): unexpected scause 0x{x}, sepc=0x{x}, stval=0x{x}\n",
+          r_scause(), r_sepc(), r_stval());
+      fmt::print("            pid: {}, name: {}\n", p->pid, p->name);
+      proc::set_killed(p);
+    }
   }
 
   if (proc::get_killed(p)) {
@@ -70,13 +72,13 @@ auto user_ret() -> void {
   auto *p = proc::curr_proc();
 
   intr_off();
-  uint64_t trampoline_uservec = vm::TRAMPOLINE + (uservec - trampoline);
+  auto trampoline_uservec{vm::TRAMPOLINE + (uservec - trampoline)};
 
   w_stvec(trampoline_uservec);
 
   p->trapframe->kernel_satp = r_satp();
   p->trapframe->kernel_sp = p->kernel_stack + PGSIZE;
-  p->trapframe->kernel_trap = (uint64_t)user_trap;
+  p->trapframe->kernel_trap = reinterpret_cast<uint64_t>(user_trap);
   p->trapframe->kernel_hartid = r_tp();
 
   auto x = r_sstatus();
@@ -89,7 +91,7 @@ auto user_ret() -> void {
   uint64_t satp = MAKE_SATP(p->pagetable);
 
   uint64_t trampoline_userret = vm::TRAMPOLINE + (userret - trampoline);
-  ((void (*)(uint64_t))trampoline_userret)(satp);
+  (reinterpret_cast<void (*)(uint64_t)>(trampoline_userret))(satp);
 }
 
 extern "C" auto kerneltrap() -> void {
@@ -105,7 +107,7 @@ extern "C" auto kerneltrap() -> void {
     fmt::panic("kerneltrap: not from supervisor mode");
   }
 
-  volatile auto dev = devintr();
+  auto dev = devintr();
   if (dev == 0) {
     fmt::print("scause={} sepc=0x{x} stval=0x{x}\n", scause, r_sepc(),
                r_stval());
@@ -135,12 +137,12 @@ auto devintr() -> int {
   auto scause = r_scause();
 
   if (scause == 0x8000000000000009L) {
-    int irq = plic::plic_claim();
+    auto irq = plic::plic_claim();
 
     if (irq == static_cast<int>(vm::UART_IRQ)) {
       uart::intr();
     } else if (irq == static_cast<int>(vm::VIRTIO_IRQ)) {
-      virtio_disk::virtio_disk_intr();
+      virtio::virtio_disk_intr();
     } else if (irq) {
       fmt::print("unexpected interrupt irq={}\n", irq);
     }

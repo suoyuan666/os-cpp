@@ -11,13 +11,23 @@ namespace file {
 auto pipealloc(struct file **f0, struct file **f1) -> int {
   struct pipe *pi = nullptr;
 
-  pi = nullptr;
-  *f0 = *f1 = nullptr;
-  if ((*f0 = alloc()) == nullptr || (*f1 = alloc()) == nullptr) {
-    goto bad;
+  *f0 = alloc();
+  *f1 = alloc();
+
+  if (*f0 == nullptr || *f1 == nullptr) {
+    if (*f0) {
+      close(*f0);
+    }
+    if (*f1) {
+      close(*f1);
+    }
+    return -1;
   }
-  if ((pi = (struct pipe *)(alloc())) == nullptr) {
-    goto bad;
+  pi = reinterpret_cast<struct pipe *>(alloc());
+  if (pi == nullptr) {
+    close(*f0);
+    close(*f1);
+    return -1;
   }
   pi->readopen = true;
   pi->writeopen = true;
@@ -33,18 +43,6 @@ auto pipealloc(struct file **f0, struct file **f1) -> int {
   (*f1)->writable = true;
   (*f1)->pipe = pi;
   return 0;
-
-bad:
-  if (pi) {
-    vm::kfree(pi);
-  }
-  if (*f0) {
-    close(*f0);
-  }
-  if (*f1) {
-    close(*f1);
-  }
-  return -1;
 }
 
 auto pipeclose(struct pipe *pi, bool writable) -> void {
@@ -82,7 +80,7 @@ auto pipewrite(struct pipe *pi, uint64_t addr, int n) -> uint32_t {
       if (vm::copyin(pr->pagetable, &ch, addr + i, 1) == false) {
         break;
       }
-      pi->data[pi->nwrite++ % PIPESIZE] = ch;
+      pi->data.at(pi->nwrite++ % PIPESIZE) = ch;
       i++;
     }
   }
@@ -109,7 +107,7 @@ auto piperead(struct pipe *pi, uint64_t addr, int n) -> uint32_t {
     if (pi->nread == pi->nwrite) {
       break;
     }
-    ch = pi->data[pi->nread++ % PIPESIZE];
+    ch = pi->data.at(pi->nread++ % PIPESIZE);
     if (vm::copyout(pr->pagetable, addr + i, &ch, 1) == false) {
       break;
     }

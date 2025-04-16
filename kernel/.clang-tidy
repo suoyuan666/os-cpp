@@ -1,0 +1,38 @@
+Checks: '
+  modernize-*,
+  performance-*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  hicpp-*,
+  google-*,
+  llvm-*,
+  clang-analyzer-cplusplus.NewDelete,
+  clang-analyzer-cplusplus.Move,
+  clang-analyzer-cplusplus.SmartPtr,
+  clang-analyzer-core.NonNullParamChecker,
+  clang-analyzer-core.NullDereference,
+  clang-analyzer-core.UndefinedBinaryOperatorResult,
+  clang-analyzer-core.CallAndMessage,
+  clang-analyzer-core.StackAddressEscape,
+  clang-analyzer-core.DivideZero,
+  -hicpp-no-assembler,
+  -hicpp-no-array-decay,
+  -hicpp-braces-around-statements,
+  -bugprone-reserved-identifier,
+  -bugprone-easily-swappable-parameters,
+  -performance-no-int-to-ptr,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+'
+CheckOptions:
+  - { key: modernize-use-auto.MinTypeNameLength,                            value: 5  }
+  - { key: modernize-use-using.OverrideThreshold,                           value: 4  }
+  - { key: readability-identifier-naming.VariableCase,                      value: camelCase }
+  - { key: readability-identifier-naming.ClassCase,                         value: CamelCase }
+  - { key: readability-identifier-naming.FunctionCase,                      value: camelBack }
+  - { key: readability-identifier-naming.NamespaceCase,                     value: camelBack }
+  - { key: performance-implicit-conversion-in-loop.CheckTrivialTypes,       value: false }
+# WarningsAsErrors: '*'

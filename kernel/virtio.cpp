@@ -1,36 +1,34 @@
-#include "virtio_disk.h"
+#include "virtio.h"
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <fmt>
 
 #include "bio.h"
-#include "fs.h"
 #include "lock.h"
 #include "proc.h"
 #include "vm.h"
 
-namespace virtio_disk {
+namespace virtio {
 static inline auto R(uint64_t r) -> volatile uint32_t * {
-  return (uint32_t *)(vm::VIRTIO0 + r);
+  return reinterpret_cast<uint32_t *>(vm::VIRTIO0 + r);
 };
 
-// #define R(r) ((volatile uint32_t *)(vm::VIRTIO0 + (r)))
+struct disk_info {
+  class bio::buf *b;
+  char status;
+};
 
 static struct disk {
+  uint16_t used_idx{};
   struct virtq_desc *desc{};
   struct virtq_avail *avail{};
   struct virtq_used *used{};
 
-  char free[NUM]{};
-  uint16_t used_idx{};
-
-  struct {
-    class bio::buf *b;
-    char status;
-  } info[NUM]{};
-
-  struct virtio_blk_req ops[NUM]{};
+  std::array<char, NUM> free{};
+  std::array<struct disk_info, NUM> info{};
+  std::array<struct virtio_blk_req, NUM> ops{};
 
   class lock::spinlock vdisk_lock{};
 } disk;
@@ -75,7 +73,7 @@ auto init() -> void {
     fmt::panic("virtio disk should not be ready");
   }
 
-  uint32_t max = *R(VIRTIO_MMIO_QUEUE_NUM_MAX);
+  auto max = *R(VIRTIO_MMIO_QUEUE_NUM_MAX);
   if (max == 0) {
     fmt::panic("virtio disk has no queue 0");
   }
@@ -83,28 +81,46 @@ auto init() -> void {
     fmt::panic("virtio disk max queue too short");
   }
 
-  disk.desc = (struct virtq_desc *)vm::kalloc().value();
-  disk.avail = (struct virtq_avail *)vm::kalloc().value();
-  disk.used = (struct virtq_used *)vm::kalloc().value();
+  auto opt_desc = vm::kalloc();
+  if (!opt_desc.has_value()) {
+    fmt::panic("virtio_disk: vm::kalloc() has no memory");
+  }
+  disk.desc = reinterpret_cast<struct virtq_desc *>(opt_desc.value());
+
+  auto opt_avail = vm::kalloc();
+  if (!opt_avail.has_value()) {
+    fmt::panic("virtio_disk: vm::kalloc() has no memory");
+  }
+  disk.avail = reinterpret_cast<struct virtq_avail *>(opt_avail.value());
+
+  auto opt_used = vm::kalloc();
+  if (!opt_used.has_value()) {
+    fmt::panic("virtio_disk: vm::kalloc() has no memory");
+  }
+  disk.used = reinterpret_cast<struct virtq_used *>(opt_used.value());
   if (!disk.desc || !disk.avail || !disk.used) {
     fmt::panic("virtio disk vm::alloc");
   }
+
   std::memset(disk.desc, 0, PGSIZE);
   std::memset(disk.avail, 0, PGSIZE);
   std::memset(disk.used, 0, PGSIZE);
 
   *R(VIRTIO_MMIO_QUEUE_NUM) = NUM;
 
-  *R(VIRTIO_MMIO_QUEUE_DESC_LOW) = (uint64_t)disk.desc;
-  *R(VIRTIO_MMIO_QUEUE_DESC_HIGH) = (uint64_t)disk.desc >> 32;
-  *R(VIRTIO_MMIO_DRIVER_DESC_LOW) = (uint64_t)disk.avail;
-  *R(VIRTIO_MMIO_DRIVER_DESC_HIGH) = (uint64_t)disk.avail >> 32;
-  *R(VIRTIO_MMIO_DEVICE_DESC_LOW) = (uint64_t)disk.used;
-  *R(VIRTIO_MMIO_DEVICE_DESC_HIGH) = (uint64_t)disk.used >> 32;
+  *R(VIRTIO_MMIO_QUEUE_DESC_LOW) = reinterpret_cast<uint64_t>(disk.desc);
+  *R(VIRTIO_MMIO_QUEUE_DESC_HIGH) =
+      reinterpret_cast<uint64_t>(disk.desc) >> 32U;
+  *R(VIRTIO_MMIO_DRIVER_DESC_LOW) = reinterpret_cast<uint64_t>(disk.avail);
+  *R(VIRTIO_MMIO_DRIVER_DESC_HIGH) =
+      reinterpret_cast<uint64_t>(disk.avail) >> 32U;
+  *R(VIRTIO_MMIO_DEVICE_DESC_LOW) = reinterpret_cast<uint64_t>(disk.used);
+  *R(VIRTIO_MMIO_DEVICE_DESC_HIGH) =
+      reinterpret_cast<uint64_t>(disk.used) >> 32U;
 
   *R(VIRTIO_MMIO_QUEUE_READY) = 0x1;
 
-  for (char &i : disk.free) {
+  for (auto &i : disk.free) {
     i = 1;
   }
 
@@ -113,9 +129,9 @@ auto init() -> void {
 }
 
 auto alloc_desc() -> int {
-  for (uint32_t i{0}; i < NUM; ++i) {
-    if (disk.free[i]) {
-      disk.free[i] = 0;
+  for (int i{0}; i < static_cast<int>(NUM); ++i) {
+    if (disk.free.at(i)) {
+      disk.free.at(i) = 0;
       return i;
     }
   }
@@ -126,7 +142,7 @@ auto free_desc(int i) -> void {
   if (i >= static_cast<int>(NUM)) {
     fmt::panic("free_desc: 1");
   }
-  if (disk.free[i]) {
+  if (disk.free.at(i)) {
     fmt::panic("free_desc: 2");
   }
 
@@ -134,15 +150,15 @@ auto free_desc(int i) -> void {
   disk.desc[i].len = 0;
   disk.desc[i].flags = 0;
   disk.desc[i].next = 0;
-  disk.free[i] = 1;
+  disk.free.at(i) = 1;
 }
 
-auto alloc3_desc(int *idx) -> int {
+auto alloc3_desc(std::array<int, 3> &idx) -> int {
   for (auto i{0}; i < 3; ++i) {
-    idx[i] = alloc_desc();
-    if (idx[i] < 0) {
+    idx.at(i) = alloc_desc();
+    if (idx.at(i) < 0) {
       for (auto j{0}; j < i; ++j) {
-        free_desc(idx[j]);
+        free_desc(idx.at(j));
       }
       return -1;
     }
@@ -164,11 +180,11 @@ auto free_chain(int i) -> void {
 }
 
 auto disk_rw(class bio::buf *b, bool write) -> void {
-  uint64_t sector = b->blockno * (fs::BSIZE / 512);
+  auto sector = static_cast<uint64_t>(b->blockno * (fs::BSIZE / 512));
 
   disk.vdisk_lock.acquire();
 
-  int idx[3];
+  std::array<int, 3> idx{};
   while (true) {
     if (alloc3_desc(idx) == 0) {
       break;
@@ -176,7 +192,7 @@ auto disk_rw(class bio::buf *b, bool write) -> void {
     proc::sleep(&disk.free[0], disk.vdisk_lock);
   }
 
-  auto *buf0 = &disk.ops[idx[0]];
+  auto *buf0 = &disk.ops.at(idx.at(0));
 
   if (write) {
     buf0->type = VIRTIO_BLK_T_OUT;
@@ -186,30 +202,32 @@ auto disk_rw(class bio::buf *b, bool write) -> void {
   buf0->reserved = 0;
   buf0->sector = sector;
 
-  disk.desc[idx[0]].addr = (uint64_t)buf0;
-  disk.desc[idx[0]].len = sizeof(struct virtio_blk_req);
-  disk.desc[idx[0]].flags = VRING_DESC_F_NEXT;
-  disk.desc[idx[0]].next = idx[1];
+  disk.desc[idx.at(0)].addr = reinterpret_cast<uint64_t>(buf0);
+  disk.desc[idx.at(0)].len = sizeof(struct virtio_blk_req);
+  disk.desc[idx.at(0)].flags = VRING_DESC_F_NEXT;
+  disk.desc[idx.at(0)].next = idx.at(1);
 
-  disk.desc[idx[1]].addr = (uint64_t)b->data;
-  disk.desc[idx[1]].len = fs::BSIZE;
-  if (write)
-    disk.desc[idx[1]].flags = 0;
-  else
-    disk.desc[idx[1]].flags = VRING_DESC_F_WRITE;
-  disk.desc[idx[1]].flags |= VRING_DESC_F_NEXT;
-  disk.desc[idx[1]].next = idx[2];
+  disk.desc[idx.at(1)].addr = reinterpret_cast<uint64_t>(b->data.begin());
+  disk.desc[idx.at(1)].len = fs::BSIZE;
+  if (write) {
+    disk.desc[idx.at(1)].flags = 0;
+  } else {
+    disk.desc[idx.at(1)].flags = VRING_DESC_F_WRITE;
+  }
+  disk.desc[idx.at(1)].flags |= VRING_DESC_F_NEXT;
+  disk.desc[idx.at(1)].next = idx.at(2);
 
-  disk.info[idx[0]].status = 0xff;
-  disk.desc[idx[2]].addr = (uint64_t)&disk.info[idx[0]].status;
-  disk.desc[idx[2]].len = 1;
-  disk.desc[idx[2]].flags = VRING_DESC_F_WRITE;
-  disk.desc[idx[2]].next = 0;
+  disk.info.at(idx.at(0)).status = 0xff;
+  disk.desc[idx.at(2)].addr =
+      reinterpret_cast<uint64_t>(&disk.info.at(idx.at(0)).status);
+  disk.desc[idx.at(2)].len = 1;
+  disk.desc[idx.at(2)].flags = VRING_DESC_F_WRITE;
+  disk.desc[idx.at(2)].next = 0;
 
   b->disk = 1;
-  disk.info[idx[0]].b = b;
+  disk.info.at(idx.at(0)).b = b;
 
-  disk.avail->ring[disk.avail->idx % NUM] = idx[0];
+  disk.avail->ring.at(disk.avail->idx % NUM) = idx.at(0);
 
   __sync_synchronize();
 
@@ -223,8 +241,8 @@ auto disk_rw(class bio::buf *b, bool write) -> void {
     proc::sleep(b, disk.vdisk_lock);
   }
 
-  disk.info[idx[0]].b = 0;
-  free_chain(idx[0]);
+  disk.info.at(idx.at(0)).b = nullptr;
+  free_chain(idx.at(0));
   disk.vdisk_lock.release();
 }
 
@@ -237,13 +255,13 @@ auto virtio_disk_intr() -> void {
 
   while (disk.used_idx != disk.used->idx) {
     __sync_synchronize();
-    int id = disk.used->ring[disk.used_idx % NUM].id;
+    auto id = disk.used->ring.at(disk.used_idx % NUM).id;
 
-    if (disk.info[id].status != 0) {
+    if (disk.info.at(id).status != 0) {
       fmt::panic("virtio_disk_intr status");
     }
 
-    auto *b = disk.info[id].b;
+    auto *b = disk.info.at(id).b;
     b->disk = 0;
     proc::wakeup(b);
 
@@ -252,4 +270,4 @@ auto virtio_disk_intr() -> void {
 
   disk.vdisk_lock.release();
 }
-}  // namespace virtio_disk
+}  // namespace virtio

@@ -100,7 +100,7 @@ auto map_pages(uint64_t *pagetable, uint64_t va, uint64_t pa, uint64_t size,
 auto inithart() -> void;
 auto uvm_create() -> uint64_t *;
 auto walkaddr(uint64_t *pagetable, uint64_t va) -> uint64_t;
-auto uvm_first(uint64_t *pagetable, unsigned char *src, uint32_t size) -> void;
+auto uvm_first(uint64_t *pagetable, const unsigned char *src, uint32_t size) -> void;
 auto uvm_unmap(uint64_t *pagetable, uint64_t va, uint64_t npages, bool do_free)
     -> void;
 auto uvm_free(uint64_t *pagetable, uint64_t sz) -> void;
