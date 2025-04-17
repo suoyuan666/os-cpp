@@ -1,10 +1,9 @@
+#include <fcntl.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-#include "fnctl.h"
 
 void cat(int fd);
 

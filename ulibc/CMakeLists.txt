@@ -4,8 +4,8 @@ set (
     ULIBC_SRC
     # syscall
     ${PROJECT_SOURCE_DIR}/ulibc/src/internal/syscall_ret.c
-    # fnctl
-    ${PROJECT_SOURCE_DIR}/ulibc/src/fnctl/open.c
+    # fcntl
+    ${PROJECT_SOURCE_DIR}/ulibc/src/fcntl/open.c
     # process
     ${PROJECT_SOURCE_DIR}/ulibc/src/process/wait.c
     # stat
@@ -40,6 +40,7 @@ set (
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/memmove.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/memset.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/strchr.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/string/strcmp.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/strcpy.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/strlen.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/string/strnlen.c
@@ -48,6 +49,7 @@ set (
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/dup.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/execve.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/fork.c
+    ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/pipe.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/read.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/sbrk.c
     ${PROJECT_SOURCE_DIR}/ulibc/src/unistd/setuid.c

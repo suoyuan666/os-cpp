@@ -1,4 +1,4 @@
-#include <fnctl.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,7 +20,7 @@ struct execcmd {
 const char whitespace[] = " \t\r\n\v";
 const char symbols[] = "<|>&;()";
 
-_Noreturn void runcmd(struct cmd *cmd);
+[[noreturn]] void runcmd(struct cmd *cmd);
 struct cmd *parsecmd(char *s);
 
 void panic(char *s) {
@@ -32,7 +32,7 @@ int getcmd(char *buf, int nbuf) {
   write(2, "$ ", 2);
   memset(buf, 0, nbuf);
   gets_s(buf, nbuf);
-  
+
   if (buf[0] == 0) {
     return -1;
   }
@@ -54,20 +54,20 @@ int main(void) {
     if (fork() == 0) {
       runcmd(parsecmd(buf));
     }
-    wait(NULL);
+    wait(nullptr);
   }
 }
 
-void runcmd(struct cmd *cmd) {
-  if (cmd == 0) {
+[[noreturn]] void runcmd(struct cmd *cmd) {
+  if (cmd == nullptr) {
     exit(1);
   }
 
   struct execcmd *ecmd = (struct execcmd *)cmd;
-  if (ecmd->argv[0] == 0) {
+  if (ecmd->argv[0] == nullptr) {
     exit(1);
   }
-  execve(ecmd->argv[0], ecmd->argv, NULL);
+  execve(ecmd->argv[0], ecmd->argv, nullptr);
   printf("exec %s failed\n", ecmd->argv[0]);
   exit(0);
 }
@@ -81,29 +81,33 @@ struct cmd *nulterminate(struct cmd *cmd) {
 }
 
 int peek(char **ps, char *es, char *toks) {
-  char *s;
+  char *s = nullptr;
 
   s = *ps;
-  while (s < es && strchr(whitespace, *s)) s++;
+  while (s < es && strchr(whitespace, *s)) {
+    s++;
+  }
   *ps = s;
   return *s && strchr(toks, *s);
 }
 
 struct cmd *execcmd(void) {
-  struct execcmd *cmd;
-
-  cmd = malloc(sizeof(*cmd));
+  struct execcmd *cmd = malloc(sizeof(*cmd));
   memset(cmd, 0, sizeof(*cmd));
   return (struct cmd *)cmd;
 }
 
 int gettoken(char **ps, char *es, char **q, char **eq) {
-  char *s;
-  int ret;
+  char *s = nullptr;
+  int ret = 0;
 
   s = *ps;
-  while (s < es && strchr(whitespace, *s)) s++;
-  if (q) *q = s;
+  while (s < es && strchr(whitespace, *s)) {
+    s++;
+  }
+  if (q) {
+    *q = s;
+  }
   ret = *s;
   switch (*s) {
     case 0:
@@ -125,42 +129,52 @@ int gettoken(char **ps, char *es, char **q, char **eq) {
       break;
     default:
       ret = 'a';
-      while (s < es && !strchr(whitespace, *s) && !strchr(symbols, *s)) s++;
+      while (s < es && !strchr(whitespace, *s) && !strchr(symbols, *s)) {
+        s++;
+      }
       break;
   }
-  if (eq) *eq = s;
+  if (eq) {
+    *eq = s;
+  }
 
-  while (s < es && strchr(whitespace, *s)) s++;
+  while (s < es && strchr(whitespace, *s)) {
+    s++;
+  }
   *ps = s;
   return ret;
 }
 
 struct cmd *parseexec(char **ps, char *es) {
-  char *q, *eq;
-  int tok, argc;
-  struct execcmd *cmd;
-  struct cmd *ret;
-
-  ret = execcmd();
-  cmd = (struct execcmd *)ret;
+  char *q = nullptr, *eq = nullptr;
+  int tok = 0, argc = 0;
+  struct cmd *ret = execcmd();
+  auto cmd = (struct execcmd *)ret;
 
   argc = 0;
   while (!peek(ps, es, "|)&;")) {
-    if ((tok = gettoken(ps, es, &q, &eq)) == 0) break;
-    if (tok != 'a') panic("syntax");
+    tok = gettoken(ps, es, &q, &eq);
+    if (tok == 0) {
+      break;
+    }
+    if (tok != 'a') {
+      panic("syntax");
+    }
     cmd->argv[argc] = q;
     cmd->eargv[argc] = eq;
     argc++;
-    if (argc >= MAXARGS) panic("too many args");
+    if (argc >= MAXARGS) {
+      panic("too many args");
+    }
   }
-  cmd->argv[argc] = 0;
-  cmd->eargv[argc] = 0;
+  cmd->argv[argc] = nullptr;
+  cmd->eargv[argc] = nullptr;
   return ret;
 }
 
 struct cmd *parsecmd(char *s) {
-  char *es;
-  struct cmd *cmd;
+  char *es = nullptr;
+  struct cmd *cmd = nullptr;
 
   es = s + strlen(s);
   cmd = parseexec(&s, es);

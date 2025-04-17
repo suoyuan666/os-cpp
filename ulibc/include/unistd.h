@@ -3,6 +3,8 @@
 #include <stdint.h>
 
 int dup(int);
+int dup2(int, int);
+int dup3(int, int, int);
 int pipe(int [2]);
 int close(int);
 
